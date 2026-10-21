@@ -311,11 +311,11 @@ test('Refinamento Visual — 27 Bandeiras Oficiais das UFs presentes e zero emoj
   }
 
   const lexCode = fs.readFileSync(path.join(ROOT, 'src/components/narrator/AutoNarratorFeed.tsx'), 'utf-8')
-  assert.doesNotMatch(lexCode, /[🎯📍⚡📈🏛️🔄]/)
+  assert.doesNotMatch(lexCode, /(?:🎯|📍|⚡|📈|🏛️|🔄)/u)
   assert.match(lexCode, /renderCleanTickerContent/)
 
   const speedCode = fs.readFileSync(path.join(ROOT, 'src/components/scoreboard/CountingSpeedometer.tsx'), 'utf-8')
-  assert.doesNotMatch(speedCode, /[🎯📍⚡📈🏛️🔄✓]/)
+  assert.doesNotMatch(speedCode, /(?:🎯|📍|⚡|📈|🏛️|🔄|✓)/u)
 })
 
 
