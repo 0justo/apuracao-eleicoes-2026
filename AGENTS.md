@@ -11,12 +11,12 @@ Estas diretrizes regem o desenvolvimento, textos de interface, testes, fixtures 
    - **NUNCA** escrever "eleito", "vencedor", "ganhou", "vitória" ou "derrota" por conta própria em nenhum componente, cálculo ou frase do assistente analítico ("Lex").
    - Só exibir o status "Eleito" (ou "Matematicamente definido") se o próprio JSON oficial do TSE trouxer `e == "s"` ou `st == "Eleito"`, sempre acompanhado da atribuição explícita: **"Eleito (segundo o TSE)"**.
 
-3. **Rotulagem Estrita de Estimativas**:
+3. **Rotulagem Estrita de Estimativas e Interface Limpa de Alta Escaneabilidade**:
    - Nenhuma projeção ou extrapolação pode ser apresentada como fato.
-   - Todo cálculo que envolva votos restantes estimados, comparecimento esperado ou o "Cenário de referência" deve exibir de forma clara e imediata o rótulo: **"Estimativa do site, não é resultado oficial"**.
+   - Todo componente que envolva votos restantes estimados, comparecimento esperado ou o "Cenário de referência" deve exibir de forma clara e contextual o rótulo **"Estimativa do site, não é resultado oficial"** em cabeçalhos, tooltips informativos (ⓘ) e modais metodológicos, evitando repetições residuais desnecessárias dentro de cada mini-card para garantir leitura rápida e limpa.
 
-4. **Aviso Fixo de Fonte e Independência**:
-   - Manter aviso fixo e sempre visível na tela:
+4. **Aviso Fixo de Fonte, Independência e Rodapé Legal Único**:
+   - Manter aviso fixo no topo e rodapé legal único e sóbrio:
      > *"Resultado parcial até 100% das urnas apuradas. Fonte: TSE. Atualizado às HH:MM:SS"*
    - Incluir link clicável direto para o Portal Resultados do TSE (`https://resultados.tse.jus.br`) e link "ver na fonte" em cada métrica relevante.
    - Explicitar que o aplicativo é independente e não possui afiliação com o TSE, candidatos, coligações ou partidos políticos.

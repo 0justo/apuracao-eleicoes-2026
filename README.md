@@ -1,195 +1,245 @@
 # Apuração 2º Turno — Eleições 2026 (`25/10/2026`)
 
-Aplicação web **mobile-first**, neutra e independente para acompanhar a apuração do **2º turno das Eleições Gerais Brasileiras de 2026** (domingo, **25/10/2026**, votação das 8h às 17h e divulgação oficial a partir das **17h00 BRT**) para os cargos de **Presidente da República** e **Governador** (nos estados com 2º turno descobertos dinamicamente a partir da configuração oficial do TSE).
+Aplicação web **mobile-first** e de **alta performance** desenvolvida para acompanhar a apuração do **2º turno das Eleições Gerais Brasileiras de 2026** (domingo, **25 de outubro de 2026**, votação das 8h às 17h e divulgação oficial dos resultados a partir das **17h00 BRT**) para os cargos de **Presidente da República** e **Governador** (nas UFs com 2º turno detectadas automaticamente via configuração do TSE).
 
-> **Diferencial**: Responder de forma matemática, transparente e estritamente neutra à pergunta **"O que ainda pode mudar nesta apuração?"** (Calculadora da Virada, Onde Ainda Falta Contar, Mapa de Variação 1ºT → 2ºT, Linha do Tempo da Margem com Replay Histórico 2022 e Narrador Automático determinístico).
+> **Proposta de Valor**: Responder com rigor matemático, transparência analítica e estrita neutralidade textual à pergunta central: **"O que ainda pode mudar nesta apuração?"** através da Calculadora da Virada, Onde Ainda Falta Contar, Mapa Geográfico IBGE em Tempo Real, Linha do Tempo com Replay Histórico 2022 e o feed determinístico Lex News.
 >
-> **Aviso importante**: Este aplicativo **não substitui** a fonte oficial e **não possui afiliação** com o Tribunal Superior Eleitoral (TSE), candidatos, coligações ou partidos políticos. Fonte oficial: [Portal Resultados do TSE](https://resultados.tse.jus.br).
+> **Aviso de Independência**: Este aplicativo **não substitui** o canal oficial do Tribunal Superior Eleitoral e **não possui afiliação** com o TSE, órgãos governamentais, candidatos, coligações ou partidos políticos. Dados oficiais: [Portal Resultados do TSE](https://resultados.tse.jus.br).
 
 ---
 
-## 1. Regras Inegociáveis do Projeto
+## 1. Visão Geral e Identidade Visual
 
-1. **Neutralidade Política Absoluta**:
-   - Proibido usar cores associadas a partidos ou campanhas (como vermelho, azul, amarelo ou verde-amarelo).
-   - Paleta divergente neutra e acessível para daltônicos com dupla codificação visual (cor + padrão geométrico):
-     - **Posição Oficial 1 (`seq=1` no TSE)**: Violeta (`#6D28D9` / `#5B21B6`) + padrão de listras diagonais (`///`).
-     - **Posição Oficial 2 (`seq=2` no TSE)**: Turquesa/Petróleo (`#0F766E` / `#115E59`) + padrão pontilhado (`...`).
-   - Ordem fixa e consistente dos candidatos seguindo estritamente o campo `seq` do arquivo oficial `EA20` do TSE.
-   - Tratamento simétrico e idêntico aos dois candidatos, sem adjetivos valorativos ou linguagem de torcida.
+O projeto adota uma arquitetura visual moderna, focada em legibilidade e rapidez de assimilação dos dados eleitorais em tempo real:
 
-2. **Proibição de Declaração Própria de Resultado**:
-   - O sistema **nunca** escreve `"eleito"`, `"vencedor"`, `"ganhou"`, `"vitória"` ou `"derrota"` por conta própria.
-   - O selo **"Eleito (segundo o TSE)"** só é exibido quando o próprio JSON oficial do TSE contém `e == "s"`.
+* **Dashboard Widescreen de 3 Colunas em Tema True Black / OLED (`#050505`)**:
+  - Em telas largas (desktops e TVs), a interface se distribui harmonicamente em uma grade de 12 colunas (`lg:grid-cols-12`), mantendo todos os componentes vitais visíveis sem rolagem excessiva.
+  - No mobile, os componentes adotam ordenação lógica vertical otimizada (`order-1` a `order-5`), priorizando o Placar, a Calculadora da Virada e o Mapa com touch fluido.
+  - Paleta com contraste estrito WCAG AAA, suporte nativo a Dark/Light Mode e **Modo Foco** para apresentações limpas.
 
-3. **Rotulagem Estrita de Estimativas**:
-   - Nenhuma projeção é apresentada como fato. Todo cálculo que envolva votos restantes estimados ($R$), comparecimento esperado ou o Cenário de Referência exibe de forma visível e imediata o rótulo:
-     > **"Estimativa do site, não é resultado oficial"**
+* **Identidade Visual Intuitiva por Candidato e Partido**:
+  - **Presidente da República**: Vermelho (`#EF4444` / `#DC2626`) para Lula (PT) e Azul (`#3B82F6` / `#1D4ED8`) para Flávio Bolsonaro (PL).
+  - **Governadores**: Paletas personalizadas e distintas baseadas nas legendas partidárias dos finalistas de cada estado (`AC`, `AM`, `DF`, `ES`, `RN`, `TO`).
+  - **Fotos Oficiais em Alta Definição**: Avatares oficiais do cadastro do TSE (`/avatars/*.jpg`), exibidos em anéis com a cor de cada candidato e com fallback estático em SVG.
+  - **Bandeiras Oficiais das 27 UFs em SVG Vetorial**: Armazenadas em [`public/flags/*.svg`](public/flags/) e exibidas nas abas de seleção de disputa, nos cartões de locais pendentes e nos detalhes de cada localidade.
 
-4. **Aviso Fixo de Fonte e Links `"ver na fonte"`**:
-   - Topo fixo em todas as telas:
-     > *"Resultado parcial até 100% das urnas apuradas. Fonte: TSE. Atualizado às HH:MM:SS"*
-   - Cada métrica relevante inclui link clicável **"ver na fonte"** apontando para o arquivo JSON oficial (`EA20`) e para o [Portal Resultados do TSE](https://resultados.tse.jus.br).
-
-5. **Privacidade e LGPD**:
-   - Sem cadastro, sem login, sem cookies de rastreamento individual e sem coleta de dados pessoais.
-
-6. **Respeito à Infraestrutura do TSE (Resolução TSE nº 23.751/2026, arts. 264 a 269)**:
-   - Os navegadores dos usuários **NUNCA** fazem requisições diretas aos servidores do TSE (`resultados.tse.jus.br`) — nem para dados JSON, nem para imagens/fotos de candidatos.
-   - Apenas o backend realiza polling controlado (intervalo mínimo de 45–60 s por arquivo, enviando `If-None-Match` / `ETag` e `If-Modified-Since`, e inspecionando os arquivos de acompanhamento `EA14`/`EA15` `-ab.json` para buscar apenas localidades cujo timestamp `dt`/`ht` mudou).
-   - O frontend lê exclusivamente os snapshots JSON estáticos (`/snapshots/*`) e avatares estáticos (`/avatars/*`) validados e publicados no nosso CDN/armazenamento estático.
+* **Interface Limpa de Alta Escaneabilidade**:
+  - **100% Ícones Vetoriais Lucide-React**: Interface sóbria, profissional e sem emojis em nenhum componente analítico ou feed de notícias.
+  - **Tooltips Contextuais (ⓘ)**: Explicações metodológicas detalhadas acessíveis sob demanda por hover ou foco, evitando poluição visual.
+  - **Aviso Legal Único e Sóbrio**: Rótulo centralizado no rodapé da página e avisos de estimativa integrados contextualmente, sem repetições residuais desnecessárias dentro de cada mini-card.
 
 ---
 
-## 2. Arquitetura e Fluxo de Dados
+## 2. Funcionalidades Principais
 
 ```
-[Servidores TSE / Ambiente Simulação]
-          │
-          │  1 req a cada 45–60s por arquivo (ETag / If-Modified-Since)
-          │  Inspeção prévia de EA14/EA15 (-ab.json)
-          ▼
-[Backend Python 3.12 + FastAPI + httpx (Poller Assíncrono)]
-   ├── Descoberta dinâmica de pleitos e UFs com 2º turno via EA11 (ele-c.json)
-   ├── Linha de base do 1º turno 2026 em cache local (backend/data/baseline_1t_2026.json)
-   ├── Normalizador + Calculadora da Virada + Narrador Determinístico
-   ├── Validador de Sanidade (bloqueia publicação se soma divergir ou % apurado regredir)
-   ├── Histórico em SQLite (backend/data/apuracao_2026.sqlite3)
-   └── Publicador Atômico de Snapshots JSON Estáticos (public/snapshots/*)
-          │
-          ▼
-[CDN / Armazenamento Estático (Cache-Control: public, max-age=30, stale-while-revalidate=60)]
-          │
-          ▼
-[Frontend PWA React 19 + TypeScript + Vite + Tailwind CSS + d3-geo]
-   └── Service Worker (public/sw.js) retém último snapshot válido para resiliência offline
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│                    BANNER OFICIAL FIXO (TIMESTAMP TSE + STATUS)                  │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│                  SELETOR DE DISPUTAS COM BANDEIRAS OFICIAIS DAS UFs              │
+├──────────────────────────────────────────────────────────────────────────────────┤
+│     PLACAR CABO DE GUERRA (PINO CENTRAL 50%) + VELOCÍMETRO DE URNAS/MIN          │
+├────────────────────────┬─────────────────────────────┬───────────────────────────┤
+│    COLUNA ESQUERDA     │       COLUNA CENTRAL        │      COLUNA DIREITA       │
+│      (4 Colunas)       │         (5 Colunas)         │        (3 Colunas)        │
+│                        │                             │                           │
+│ • Calculadora Virada   │ • Mapa IBGE (27 UFs e 5.570 │ • Lex News                │
+│   (Medidor Graduado)   │   municípios):              │   (Fast Ticker com        │
+│ • Onde Falta Contar    │   - Ao Vivo (2ºT)           │    destaques em negrito   │
+│   (Cards com Bandeiras │   - Variação vs. 1ºT        │    e ícones vetoriais     │
+│    e Drilldown Mun.)   │   - Busca com Auto-Zoom     │    sem emojis)            │
+│                        │ • Linha do Tempo da Margem  │                           │
+│                        │   & Replay Histórico 2022   │                           │
+├────────────────────────┴─────────────────────────────┴───────────────────────────┤
+│            RODAPÉ LEGAL UNIFICADO & METODOLOGIA MATEMÁTICA DETALHADA             │
+└──────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Convenção Oficial de Arquivos do TSE Consumidos pelo Backend
+### 2.1. Placar "Cabo de Guerra" & Velocímetro de Ritmo de Apuração
+- **Termômetro Frente a Frente**: Barra encorpada de disputa em tempo real com o pino visual dos `50%` demarcado ao centro.
+- **Perfis Oficiais**: Fotos nítidas dos candidatos, número de urna, votos válidos acumulados e percentual oficial informado pelo TSE.
+- **Velocímetro de Ritmo (`CountingSpeedometer.tsx`)**:
+  - Calcula em tempo real o fluxo de processamento em **urnas/minuto** e **votos/minuto** comparando os ciclos recentes da apuração.
+  - Exibe a **projeção estimada de minutos restantes** para conclusão da totalização.
+  - Indicador dinâmico de ritmo: acelerando, em ritmo de cruzeiro, desacelerando ou totalização concluída.
 
-| Código TSE | Convenção de Nome | Finalidade no Sistema |
-| :--- | :--- | :--- |
-| **EA11** | `comum/config/ele-c.json` | Descoberta automática dos códigos do 1º turno (`6257`/`6259`) e 2º turno (`6258`/`6260`) e de quais UFs possuem 2º turno para Governador (`AC`, `AM`, `DF`, `ES`, `RN`, `TO`). |
-| **EA12** | `<ciclo>/<pleito>/config/mun-e<pleito6>-cm.json` | Catálogo oficial dos 5.570 municípios + Exterior com código TSE de 5 dígitos (`cd`) e código IBGE de 7 dígitos (`cdi`). |
-| **EA14 / EA15** | `<ciclo>/<pleito>/dados/<uf>/<uf>-e<pleito6>-ab.json` | Acompanhamento de seções e timestamp `dt`/`ht` por UF/município para baixar apenas locais atualizados no ciclo. |
-| **EA20** | `<ciclo>/<pleito>/dados/<uf>/<prefixo>-c<cargo4>-e<pleito6>-u.json` | Resultado unificado por cargo (`0001` Presidente, `0003` Governador), contendo seções (`s`), eleitorado/comparecimento (`e`), votos (`v`) e candidatos (`cand` com `seq`, `sqcand`, `n`, `nm`, `nmu`, `vap`, `pvapn`, `e`, `st`). |
+### 2.2. Coluna Esquerda: Análise de Virada e Votos Restantes
+- **Calculadora da Virada (`TurnaroundCalculator.tsx`)**:
+  - Calcula a fração exata de votos válidos restantes ($s$) que o candidato momentaneamente atrás necessita obter para virar o resultado.
+  - **Medidor Visual Graduado**: régua com 3 zonas de probabilidade matemática:
+    - *Zona Verde Esmeralda*: `< 50%` (Cenário Favorável)
+    - *Zona Âmbar*: `50% a 60%` (Cenário Disputado)
+    - *Zona Rosa/Carmim*: `> 60%` (Alta Complexidade)
+  - **Controle de Sensibilidade de Comparecimento**: controle deslizante interativo ($\delta \in [-10\%, +10\%]$) recalculando instantaneamente a projeção no navegador.
+- **Onde Ainda Falta Contar (`WhereVotesRemain.tsx`)**:
+  - Barra empilhada dividindo os votos restantes entre locais onde o Candidato 1 liderou no 1º turno vs. locais onde o Candidato 2 liderou.
+  - Cartões das localidades com maior volume de votos pendentes, exibindo a **bandeira oficial do estado**, percentual apurado e margem do 1º turno.
+  - **Drilldown por Cidades**: ao clicar no botão em qualquer estado na disputa presidencial, carrega instantaneamente o ranking dos municípios daquela UF.
+
+### 2.3. Coluna Central: Cartografia Oficial IBGE & Linha do Tempo
+- **Mapa Oficial IBGE (`SwingMapSection.tsx`, `GeoChoroplethMap.tsx` e `TileGridMap.tsx`)**:
+  - **27 UFs e 5.570 Municípios**: Malhas cartográficas de alta precisão do IBGE com projeção Mercator otimizada.
+  - **Dois Modos de Visualização**:
+    - *Ao Vivo (2º Turno)*: Colore cada localidade com a cor oficial do candidato que lidera a apuração naquele momento.
+    - *Variação vs. 1º Turno (Swing)*: Escala divergente que mede onde cada candidato cresceu ou recuou em pontos percentuais.
+  - **Busca Municipal com Auto-Zoom**: Caixa de busca inteligente com autocomplete que centraliza e amplia o mapa diretamente no município digitado.
+  - **Grade de Quadrados (Tile Grid)**: Visão alternativa onde todos os 27 estados ocupam áreas idênticas, facilitando a análise de UFs menores (DF, SE, AL, PB, RN, ES).
+  - **Renderização Dinâmica**: Alternância inteligente entre SVG vetorial e HTML5 Canvas para performance de 60 FPS mesmo em estados com centenas de municípios (como MG e SP).
+- **Linha do Tempo da Margem & Replay 2022 (`MarginTimelineChart.tsx`)**:
+  - Gráfico da evolução da diferença entre candidatos ao longo do tempo ou por percentual de urnas apuradas.
+  - **Replay Histórico 2022**: Reproduz com play/pause e seletor de velocidade os 21 quadros históricos da apuração presidencial de 2022, destacando o marco exato da virada às 18:44:12 (67,76% das urnas).
+
+### 2.4. Coluna Direita: Lex News em Tempo Real
+- **Fast Ticker Analítico (`AutoNarratorFeed.tsx`)**:
+  - Feed determinístico de frases curtas geradas matematicamente a cada ciclo de dados do TSE.
+  - Destaques em negrito para números formatados, percentuais e nomes de candidatos.
+  - Pílulas categorizadas (*Virada*, *Onde Falta Contar*, *Margem*, *Ritmo*, *Status TSE*, *Variação 1ºT*) com ícones vetoriais Lucide-React.
+  - Remoção de qualquer texto residual redundante, mantendo a leitura fluida em no máximo 2 linhas por card.
 
 ---
 
-## 3. Fórmulas Matemáticas e Funcionalidades
+## 3. Fundamentação Matemática da Calculadora da Virada
 
-### 3.1. Calculadora da Virada
-Para cada disputa:
-- $V = V_1 + V_2$: votos válidos já apurados dos dois candidatos.
-- $A = \min(V_1, V_2)$: votos válidos já apurados do candidato que está momentaneamente atrás.
-- Para cada localidade $i$ da disputa, dado o ajuste percentual de comparecimento $\delta \in [-0,20, +0,10]$ escolhido no controle deslizante sobre o comparecimento do 1º turno ($C_{1,i}$):
-  $$C_{\text{esp},i}(\delta) = \max\!\left(\text{tv}_i,\; \min\!\left(\text{te}_{2,i},\; C_{1,i} \times (1 + \delta)\right)\right)$$
-- Taxa de brancos e nulos $b_i = \frac{\text{vb}_i + \text{tvn}_i}{\text{tv}_i}$ (com fallback documentado para a taxa $b_{1,i}$ do 1º turno quando $\text{tv}_i = 0$ no início da apuração às 17h).
-- Votos válidos restantes estimados:
-  $$R(\delta) = \sum_i \max\!\left(0,\; C_{\text{esp},i}(\delta) - \text{tv}_i\right) \times (1 - b_i)$$
-- Fração necessária dos votos válidos restantes para ultrapassar $50\%$:
-  $$s = \frac{\frac{V + R(\delta)}{2} - A}{R(\delta)}$$
-- Casos de borda tratados e testados:
-  - $s > 100\%$ ou $R = 0$: *"Pelos dados atuais, a diferença supera o total estimado de votos restantes."*
-  - $s \le 0\%$: *"Pelos dados atuais, o candidato de referência já soma mais da metade do total estimado de votos válidos."*
+Para cada disputa em apuração:
+- $V = V_1 + V_2$: Total de votos válidos já totalizados para os dois candidatos.
+- $A = \min(V_1, V_2)$: Total de votos do candidato que se encontra momentaneamente atrás.
+- Para cada localidade $i$, dado o ajuste percentual de comparecimento $\delta \in [-0,10, +0,10]$ sobre o comparecimento oficial do 1º turno ($C_{1,i}$):
+
+$$C_{\text{esp},i}(\delta) = \max\!\left(\text{tv}_i,\; \min\!\left(\text{te}_{2,i},\; C_{1,i} \times (1 + \delta)\right)\right)$$
+
+onde $\text{tv}_i$ é o total de votantes já apurados e $\text{te}_{2,i}$ é o eleitorado apto cadastrado no 2º turno.
+
+- Taxa de votos brancos e nulos observada:
+$$b_i = \frac{\text{vb}_i + \text{tvn}_i}{\text{tv}_i}$$
+*(com fallback para a taxa do 1º turno $b_{1,i}$ no início da contagem quando $\text{tv}_i = 0$)*.
+
+- Volume estimado de votos válidos restantes na disputa:
+$$R(\delta) = \sum_i \max\!\left(0,\; C_{\text{esp},i}(\delta) - \text{tv}_i\right) \times (1 - b_i)$$
+
+- Percentual necessário dos votos válidos restantes para ultrapassar 50%:
+$$s = \frac{\frac{V + R(\delta)}{2} - A}{R(\delta)}$$
+
+- **Tratamento de Casos de Borda**:
+  - $s > 100\%$ ou $R = 0$: A diferença atual supera o volume total de votos restantes estimados.
+  - $s \le 0\%$: O candidato em análise já totalizou matematicamente mais da metade dos votos válidos estimados.
   - Empate exato ($V_1 = V_2$): $s = 50,00\%$.
 
-### 3.2. Onde Ainda Falta Contar & Cenário de Referência
-- Ranking de UFs e municípios ordenável por **votos válidos restantes estimados** ($R_i$) ou por **% de urnas pendentes**, com sobreposição de quem liderou no 1º turno naquele local e por qual margem.
-- Gráfico de barras empilhadas dividindo $R$ entre locais onde o Candidato 1 liderou no 1º turno vs. locais onde o Candidato 2 liderou.
-- Aba opcional **"Cenário de referência (estimativa do site)"** (desligada por padrão via `FEATURE_REFERENCE_SCENARIO=false`): aplica a variação média ponderada observada nos locais com $\ge 30\%$ apurado aos votos restantes pendentes, exibindo faixa de incerteza ($\pm 2\sigma$, mínimo $\pm 1,5\text{ p.p.}$).
+---
 
-### 3.3. Mapa de Variação 1ºT → 2ºT
-- Duas visões alternáveis: **Mapa Geográfico** (malhas TopoJSON simplificadas do IBGE: `br-ufs.topo.json` com `6,5 KB` e 27 arquivos `<uf>-mun.topo.json` com até `197 KB`) e **Grade de Quadrados (Tile Grid)** para legibilidade idêntica de `DF`, `SE`, `AL`, `RN` e `ES`.
-- Zoom por município com carregamento sob demanda e alternância automática/manual entre **SVG** e **HTML5 Canvas** (para estados com centenas de municípios como MG e SP).
-- Locais com `< 30%` das seções apuradas recebem **hachura diagonal** sinalizando baixa confiabilidade estatística.
+## 4. Arquitetura Técnica e Conformidade TSE
 
-### 3.4. Linha do Tempo da Apuração e Replay Histórico 2022
-- Série histórica da margem ($\text{Cand}_1 - \text{Cand}_2$ em pontos percentuais) e do percentual de cada candidato por **% de urnas apuradas** ou por **horário (BRT)**.
-- Modo **Replay Histórico 2022**: reproduz em velocidade controlada (`1x`, `2x`, `4x`) ou via barra deslizante os 21 quadros históricos da apuração presidencial do 2º turno de 2022 (`30/10/2022`), incluindo o momento exato da virada aos `67,76%` das seções apuradas (`18:44:12`).
+O sistema foi rigorosamente arquitetado para respeitar os artigos 264 a 269 da **Resolução TSE nº 23.751/2026**:
+
+```
+[Servidores Oficiais do TSE / DivulgaCandContas]
+                 │
+                 │ Polling assíncrono controlado (1 req a cada 45–60s por arquivo)
+                 │ Cabeçalhos HTTP If-Modified-Since e If-None-Match (ETag)
+                 │ Inspeção prévia de EA14/EA15 (-ab.json) para baixar apenas UFs alteradas
+                 ▼
+[Backend Python 3.12 + FastAPI + SQLite]
+    ├── Descoberta de pleitos via EA11 (ele-c.json)
+    ├── Validador de integridade (bloqueia publicação se soma divergir ou % apurado regredir)
+    ├── Calculadora da Virada + Narrador Neutro Determinístico
+    └── Publicador Atômico de Snapshots JSON Estáticos (public/snapshots/*)
+                 │
+                 ▼
+[Camada CDN / Armazenamento Estático (Cache-Control: max-age=30, s-maxage=60)]
+                 │
+                 ▼
+[Frontend PWA React 19 + TypeScript + Vite + Tailwind CSS]
+    └── Navegadores NUNCA fazem requisições ao TSE; consomem exclusivamente snapshots do CDN
+```
+
+### Arquivos Oficiais do TSE Processados pelo Backend
+
+| Código TSE | Nome do Arquivo | Função no Sistema |
+| :--- | :--- | :--- |
+| **EA11** | `comum/config/ele-c.json` | Descoberta automática dos códigos de eleição e UFs que foram para o 2º turno de Governador. |
+| **EA12** | `<ciclo>/<pleito>/config/mun-e<pleito>-cm.json` | Mapeamento dos 5.570 municípios (código TSE de 5 dígitos vs. código IBGE de 7 dígitos). |
+| **EA14 / EA15** | `<ciclo>/<pleito>/dados/<uf>/<uf>-e<pleito>-ab.json` | Acompanhamento de seções e horários de atualização para polling inteligente. |
+| **EA20** | `<ciclo>/<pleito>/dados/<uf>/<prefixo>-c<cargo>-e<pleito>-u.json` | Totalização de seções, eleitorado, comparecimento, votos válidos e votação por candidato. |
 
 ---
 
-## 4. Como Executar Localmente e Rodar os Testes
+## 5. Como Executar Localmente
 
 ### Pré-requisitos
 - **Node.js** 20+ e `npm`
-- **Python** 3.12+ (ambiente virtual em `.venv`)
+- **Python** 3.12+ com ambiente virtual `.venv`
 
-### Instalação e Execução em Desenvolvimento
+### Passo a Passo
+
 ```bash
-# 1. Instalar dependências frontend
+# 1. Instalar dependências do Frontend
 npm install
 
-# 2. Criar/ativar virtualenv Python e instalar dependências do backend
+# 2. Configurar o ambiente virtual Python e dependências do Backend
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
-# 3. Iniciar backend FastAPI (porta 8000)
+# 3. Iniciar o Backend FastAPI (porta 8000)
 .venv/bin/uvicorn backend.main:app --reload --port 8000
 
-# 4. Iniciar frontend Vite (porta 5173)
+# 4. Em outro terminal, iniciar o Frontend Vite (porta 3000)
 npm run dev
 ```
 
-### Execução das Suítes de Teste e Benchmark
-```bash
-# 1. Suíte de testes unitários e de integração do Backend (12 testes pytest)
-.venv/bin/pytest -v backend_tests
+Abra seu navegador em [http://localhost:3000](http://localhost:3000). A aplicação consome a API local via proxy reverso transparente (`/api -> http://localhost:8000`).
 
-# 2. Suíte de testes unitários e de contratos do Frontend (8 testes Node test runner)
+---
+
+## 6. Suíte de Testes e Qualidade
+
+O projeto conta com suítes automatizadas cobrindo todos os requisitos analíticos e de interface:
+
+```bash
+# 1. Suíte de Testes do Frontend (9 testes - Node Test Runner)
 npm run test:frontend
 
-# 3. Build de produção TypeScript + Vite
+# 2. Suíte de Testes do Backend (12 testes - Pytest)
+.venv/bin/pytest
+
+# 3. Verificação de Código e Linter (Oxlint)
+npm run lint
+
+# 4. Build de Produção TypeScript + Vite
 npm run build
 
-# 4. Suíte E2E Mobile (390x844) no navegador real (Headless Firefox, 0% -> 100%)
-.venv/bin/python3 e2e/mobile_flows.py
-
-# 5. Benchmark de Carga Concorrente (2.000 requisições / 100 clientes simultâneos)
+# 5. Teste de Carga Concorrente (2.000 requisições / 100 clientes)
 DISABLE_STARTUP_POLLER=1 .venv/bin/python3 scripts/load_test.py
 ```
 
 ---
 
-## 5. Relatório do Teste de Carga (Fase 5)
+## 7. Instruções de Deploy em Produção
 
-Executado via `scripts/load_test.py` (relatório salvo em `public/snapshots/load_test_report.json`):
-- **Total de requisições**: `2.000` requisições simultâneas (`100` clientes concorrentes) distribuídas entre `/snapshots/catalog.json`, `/snapshots/presidente/latest.json`, `/snapshots/governador-*/latest.json`, `/api/v1/disputes/presidente` e `/health`.
-- **Taxa de sucesso**: **100,0% HTTP 200** (`0,0%` de erros).
-- **Throughput local (processo único ASGI)**: `~317 req/s` com compressão Brotli/GZip ativa (`1.800` payloads comprimidos) e cabeçalhos `Cache-Control: public, max-age=30, stale-while-revalidate=60` verificados.
-- **Requisições disparadas ao TSE pelos clientes**: **`0`** (desacoplamento total garantido).
+### Backend & Poller (Render / Fly.io / Railway / VPS)
+1. Utilize o [`Dockerfile`](Dockerfile) disponível na raiz do repositório.
+2. Monte volume persistente no diretório `/app/backend/data` para reter o banco SQLite e a linha de base do 1º turno (`baseline_1t_2026.json`).
+3. Configure o healthcheck da plataforma para `GET /health`.
 
----
-
-## 6. Instruções de Deploy em Produção
-
-### Backend + Poller (Render / Fly.io / Railway)
-1. Utilize o [`Dockerfile`](file:///home/luanpc/Documentos/project1/Dockerfile) na raiz do repositório.
-2. Configure as variáveis de ambiente listadas em [`.env.example`](file:///home/luanpc/Documentos/project1/.env.example).
-3. Monte um volume persistente em `/app/backend/data` (para o banco SQLite `apuracao_2026.sqlite3` e o cache do 1º turno `baseline_1t_2026.json`) e configure a publicação de `/app/public/snapshots` para o bucket R2/S3 ou CDN.
-4. Configure o healthcheck da plataforma para `GET /health`.
-
-### Frontend Estático / PWA (Cloudflare Pages / Vercel)
-1. Comando de build: `npm run build`
-2. Diretório de saída: `dist`
-3. Regra de rewrite SPA: redirecionar rotas de navegação (`/presidente`, `/governador/*`, `/metodologia`, `/status`) para `/index.html`, mantendo cache curto (`max-age=30, stale-while-revalidate=60`) em `/snapshots/*.json` e cache longo (`max-age=86400`) em `/geo/*.topo.json` e `/avatars/*.svg`.
+### Frontend Estático & PWA (Cloudflare Pages / Vercel / Netlify)
+1. **Build command**: `npm run build`
+2. **Output directory**: `dist`
+3. Configure redirecionamento SPA (`/* -> /index.html`) e regras de cache:
+   - `public, max-age=30, stale-while-revalidate=60` para `/snapshots/*.json`
+   - `public, max-age=86400, immutable` para `/geo/*.topo.json`, `/flags/*.svg` e `/avatars/*.jpg`
 
 ---
 
-## 7. Checklist de Véspera e Dia da Apuração (`24/10/2026` e `25/10/2026`)
+## 8. Checklist de Operação — Véspera e Dia da Eleição
 
-- [ ] **Sábado, 24/10/2026 (Véspera — até 18h BRT)**:
-  - [ ] Confirmar que `backend/data/baseline_1t_2026.json` está íntegro e contém os resultados finais de 100% do 1º turno (`04/10/2026`) para Presidente (`6257`) e Governadores (`6259`).
-  - [ ] Verificar conectividade do backend com `https://resultados.tse.jus.br/oficial/comum/config/ele-c.json` (`EA11`) e confirmar os códigos oficiais do 2º turno (`6258` e `6260`) e a lista de UFs com 2º turno.
-  - [ ] Validar que o `validator.py` e o banco SQLite de produção estão zerados para a série temporal oficial do 2º turno (`is_replay = 0`).
-  - [ ] Testar o disparo do webhook de alerta (`ALERT_WEBHOOK_URL`) simulando atraso $> 5$ minutos.
-  - [ ] Confirmar que `FEATURE_REFERENCE_SCENARIO=false` está desligada por padrão.
-- [ ] **Domingo, 25/10/2026 — 08h00 às 16h55 BRT (Durante a Votação)**:
-  - [ ] Verificar que a tela pré-17h exibe a contagem regressiva até as 17h00 BRT, o resumo da linha de base do 1º turno e todos os contadores do 2º turno em `0,00%` (`waiting_0pct`).
-  - [ ] Monitorar `/status` (`GET /api/v1/status`): confirmar ciclos de 60s, respostas `HTTP 304 Not Modified` via `ETag`/`If-Modified-Since` e zero erros 404/429 no TSE.
-- [ ] **Domingo, 25/10/2026 — 17h00 às 23h00 BRT (Janela Crítica de Apuração)**:
-  - [ ] Confirmar às `17h00` a transição automática para divulgação dos resultados parciais conforme o TSE publicar os primeiros arquivos `EA14`/`EA15`/`EA20`.
-  - [ ] Acompanhar a página `/status`: verificar se a idade dos snapshots permanece $< 90\text{s}$ e se todas as verificações de sanidade estão com status `Aprovado (OK)`.
-  - [ ] Caso o TSE apresente instabilidade temporária, confirmar que o banner de dados desatualizados (`> 3 min`) e o Service Worker (`sw.js`) mantêm o último snapshot válido visível sem tela em branco.
-  - [ ] Verificar ao final da totalização que o selo **"Eleito (segundo o TSE)"** aparece exclusivamente quando o próprio JSON oficial do TSE trouxer `e == "s"`.
+### Véspera (`24/10/2026` — até 18h BRT)
+- [ ] Confirmar integridade de `backend/data/baseline_1t_2026.json` com 100% dos votos do 1º turno para Presidente e Governadores.
+- [ ] Testar conectividade do poller com o arquivo `ele-c.json` (`EA11`) nos servidores do TSE.
+- [ ] Validar que o banco SQLite de produção está limpo para a contagem oficial do 2º turno (`is_replay = 0`).
+
+### Durante a Votação (`25/10/2026` — 08h00 às 16h55 BRT)
+- [ ] Confirmar que o frontend exibe a contagem regressiva para as 17h00 BRT com 0,00% apurado.
+- [ ] Monitorar a rota `/health` e `/api/v1/status`: confirmar ciclos regulares de polling recebendo `HTTP 304 Not Modified` via ETag.
+
+### Janela Crítica de Apuração (`25/10/2026` — 17h00 às 23h00 BRT)
+- [ ] Verificar a transição automática das telas às 17h00 BRT com os primeiros boletins totalizados pelo TSE.
+- [ ] Acompanhar o Velocímetro de Apuração e garantir que a idade dos snapshots em cache permanece $< 60$ segundos.
+- [ ] Confirmar que a atribuição **"Eleito (segundo o TSE)"** surge única e exclusivamente quando o arquivo oficial do TSE trouxer `e == "s"`.
