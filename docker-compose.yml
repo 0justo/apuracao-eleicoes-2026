@@ -1,0 +1,21 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - TSE_BASE_URL=https://resultados.tse.jus.br
+      - TSE_ENVIRONMENT=oficial
+      - TSE_CYCLE=ele2026
+      - TSE_SOURCE_MODE=live
+      - TSE_POLL_INTERVAL_SECONDS=60
+      - TSE_MIN_FILE_INTERVAL_SECONDS=45
+      - FEATURE_REFERENCE_SCENARIO=false
+      - FEATURE_NARRATOR=true
+      - FEATURE_REPLAY=true
+    volumes:
+      - ./backend/data:/app/backend/data
+      - ./public/snapshots:/app/public/snapshots
+    restart: unless-stopped

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 70">
+  <rect width="100" height="70" fill="#FFFFFF"/>
+  <polygon points="50,14 22,58 78,58" fill="#D60000"/>
+  <path id="curve" d="M 20 62 Q 50 67 80 62" fill="transparent"/>
+  <text font-family="sans-serif" font-size="3.2" font-weight="900" fill="#000" text-anchor="middle">
+    <textPath href="#curve" startOffset="50%">LIBERTAS QUÆ SERA TAMEN</textPath>
+  </text>
+</svg>

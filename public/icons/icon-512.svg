@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ícone Apuração 2º Turno 2026 (512x512)">
+  <rect width="512" height="512" rx="96" fill="#0F172A" />
+  <rect x="64" y="104" width="176" height="304" rx="32" fill="#6D28D9" />
+  <rect x="272" y="104" width="176" height="304" rx="32" fill="#0F766E" />
+  <line x1="256" y1="72" x2="256" y2="440" stroke="#94A3B8" stroke-width="10" stroke-dasharray="16 14" />
+  <text x="152" y="276" text-anchor="middle" fill="#FFFFFF" font-family="Inter, system-ui, sans-serif" font-size="76" font-weight="800">2º</text>
+  <text x="360" y="276" text-anchor="middle" fill="#FFFFFF" font-family="Inter, system-ui, sans-serif" font-size="76" font-weight="800">T</text>
+</svg>

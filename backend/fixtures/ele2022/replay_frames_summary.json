@@ -1,0 +1,149 @@
+[
+  {
+    "step": 0,
+    "hms": "17:00:00",
+    "pct_counted": 0.0,
+    "cand1_pct": 0.0,
+    "cand2_pct": 0.0
+  },
+  {
+    "step": 1,
+    "hms": "17:08:12",
+    "pct_counted": 2.1,
+    "cand1_pct": 42.81,
+    "cand2_pct": 57.19
+  },
+  {
+    "step": 2,
+    "hms": "17:16:30",
+    "pct_counted": 5.61,
+    "cand1_pct": 44.61,
+    "cand2_pct": 55.39
+  },
+  {
+    "step": 3,
+    "hms": "17:25:45",
+    "pct_counted": 10.96,
+    "cand1_pct": 46.01,
+    "cand2_pct": 53.99
+  },
+  {
+    "step": 4,
+    "hms": "17:36:10",
+    "pct_counted": 18.99,
+    "cand1_pct": 47.23,
+    "cand2_pct": 52.77
+  },
+  {
+    "step": 5,
+    "hms": "17:48:22",
+    "pct_counted": 27.56,
+    "cand1_pct": 48.08,
+    "cand2_pct": 51.92
+  },
+  {
+    "step": 6,
+    "hms": "17:59:05",
+    "pct_counted": 36.67,
+    "cand1_pct": 48.73,
+    "cand2_pct": 51.27
+  },
+  {
+    "step": 7,
+    "hms": "18:10:40",
+    "pct_counted": 44.88,
+    "cand1_pct": 49.2,
+    "cand2_pct": 50.8
+  },
+  {
+    "step": 8,
+    "hms": "18:21:15",
+    "pct_counted": 52.65,
+    "cand1_pct": 49.56,
+    "cand2_pct": 50.44
+  },
+  {
+    "step": 9,
+    "hms": "18:32:50",
+    "pct_counted": 59.89,
+    "cand1_pct": 49.86,
+    "cand2_pct": 50.14
+  },
+  {
+    "step": 10,
+    "hms": "18:44:33",
+    "pct_counted": 67.23,
+    "cand1_pct": 50.12,
+    "cand2_pct": 49.88
+  },
+  {
+    "step": 11,
+    "hms": "18:55:18",
+    "pct_counted": 73.0,
+    "cand1_pct": 50.31,
+    "cand2_pct": 49.69
+  },
+  {
+    "step": 12,
+    "hms": "19:06:42",
+    "pct_counted": 78.75,
+    "cand1_pct": 50.48,
+    "cand2_pct": 49.52
+  },
+  {
+    "step": 13,
+    "hms": "19:18:09",
+    "pct_counted": 84.23,
+    "cand1_pct": 50.63,
+    "cand2_pct": 49.37
+  },
+  {
+    "step": 14,
+    "hms": "19:30:27",
+    "pct_counted": 89.13,
+    "cand1_pct": 50.76,
+    "cand2_pct": 49.24
+  },
+  {
+    "step": 15,
+    "hms": "19:43:51",
+    "pct_counted": 93.01,
+    "cand1_pct": 50.85,
+    "cand2_pct": 49.15
+  },
+  {
+    "step": 16,
+    "hms": "19:57:14",
+    "pct_counted": 96.3,
+    "cand1_pct": 50.93,
+    "cand2_pct": 49.07
+  },
+  {
+    "step": 17,
+    "hms": "20:14:02",
+    "pct_counted": 98.76,
+    "cand1_pct": 50.98,
+    "cand2_pct": 49.02
+  },
+  {
+    "step": 18,
+    "hms": "20:35:48",
+    "pct_counted": 99.59,
+    "cand1_pct": 51.0,
+    "cand2_pct": 49.0
+  },
+  {
+    "step": 19,
+    "hms": "21:12:19",
+    "pct_counted": 99.92,
+    "cand1_pct": 51.01,
+    "cand2_pct": 48.99
+  },
+  {
+    "step": 20,
+    "hms": "21:58:04",
+    "pct_counted": 100.0,
+    "cand1_pct": 51.01,
+    "cand2_pct": 48.99
+  }
+]

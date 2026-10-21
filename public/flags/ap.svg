@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 70">
+  <rect width="100" height="30" fill="#002B7F"/>
+  <rect y="30" width="100" height="10" fill="#FEDF00"/>
+  <rect y="33" width="100" height="4" fill="#FFFFFF"/>
+  <rect y="40" width="100" height="30" fill="#009B3A"/>
+  <!-- Fortaleza de São José -->
+  <rect x="8" y="24" width="20" height="22" fill="#000000"/>
+  <rect x="12" y="28" width="12" height="14" fill="#FEDF00"/>
+</svg>

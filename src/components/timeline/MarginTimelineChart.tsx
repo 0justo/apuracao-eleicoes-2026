@@ -1,0 +1,689 @@
+import { useState } from 'react'
+import {
+  Clock,
+  History,
+  Info,
+  LineChart,
+  Pause,
+  Percent,
+  Play,
+  Radio,
+  RotateCcw,
+} from 'lucide-react'
+import type {
+  DisputeSnapshot,
+  ReplayBundle,
+  TimelinePoint,
+} from '../../types/election'
+import { getDisputePairThemes } from '../../utils/candidatePalette'
+import {
+  formatInt,
+  formatPct,
+  formatPP,
+  formatSignedPP,
+} from '../../utils/formatters'
+
+interface MarginTimelineChartProps {
+  snapshot: DisputeSnapshot
+  isReplayMode: boolean
+  replayBundle: ReplayBundle | null
+  replayFrameIndex: number
+  isReplayPlaying: boolean
+  replaySpeedMs: number
+  onStartReplay: () => void
+  onStopReplay: () => void
+  onSelectReplayFrame: (idx: number) => void
+  onToggleReplayPlay: () => void
+  onChangeReplaySpeed: (ms: number) => void
+}
+
+const SVG_WIDTH = 720
+const SVG_HEIGHT = 270
+const PAD_LEFT = 54
+const PAD_RIGHT = 24
+const PAD_TOP = 24
+const PAD_BOTTOM = 42
+
+export function MarginTimelineChart({
+  snapshot,
+  isReplayMode,
+  replayBundle,
+  replayFrameIndex,
+  isReplayPlaying,
+  replaySpeedMs,
+  onStartReplay,
+  onStopReplay,
+  onSelectReplayFrame,
+  onToggleReplayPlay,
+  onChangeReplaySpeed,
+}: MarginTimelineChartProps) {
+  const [cand1, cand2] = snapshot.candidates
+  const [theme1, theme2] = getDisputePairThemes(cand1, cand2)
+  const [xAxisMode, setXAxisMode] = useState<'pct' | 'time'>('pct')
+  const [chartType, setChartType] = useState<'margin' | 'both_candidates'>(
+    'margin',
+  )
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+
+  const points: TimelinePoint[] = snapshot.timeline ?? []
+  const plotW = SVG_WIDTH - PAD_LEFT - PAD_RIGHT
+  const plotH = SVG_HEIGHT - PAD_TOP - PAD_BOTTOM
+
+  const activePoint: TimelinePoint | null =
+    points.length > 0
+      ? (points[hoveredIdx ?? points.length - 1] ?? points[points.length - 1])
+      : null
+
+  // Escala horizontal X: por % de urnas apuradas (0..100) ou por índice temporal
+  const getX = (pt: TimelinePoint, idx: number): number => {
+    if (points.length <= 1) return PAD_LEFT + plotW / 2
+    if (xAxisMode === 'pct') {
+      return PAD_LEFT + (Math.max(0, Math.min(100, pt.pct_counted)) / 100) * plotW
+    }
+    return PAD_LEFT + (idx / (points.length - 1)) * plotW
+  }
+
+  // Escala vertical Y para o gráfico de Margem (Candidato 1 - Candidato 2 em p.p.)
+  const maxAbsMargin = Math.max(
+    4,
+    ...points.map((p) => Math.abs(p.margin_cand1_minus_cand2_pp)),
+  )
+  const yBoundMargin = Math.ceil(maxAbsMargin * 1.15)
+  const zeroY = PAD_TOP + plotH / 2
+
+  const getYMargin = (marginPP: number): number => {
+    const clamped = Math.max(-yBoundMargin, Math.min(yBoundMargin, marginPP))
+    return zeroY - (clamped / yBoundMargin) * (plotH / 2)
+  }
+
+  // Escala vertical Y para o gráfico de ambos os candidatos (% válidos)
+  const allPcts = points.flatMap((p) => [p.cand1_pct, p.cand2_pct])
+  const minCandPct =
+    allPcts.length > 0 ? Math.max(0, Math.floor(Math.min(...allPcts) - 3)) : 35
+  const maxCandPct =
+    allPcts.length > 0
+      ? Math.min(100, Math.ceil(Math.max(...allPcts) + 3))
+      : 65
+  const spanCandPct = Math.max(4, maxCandPct - minCandPct)
+
+  const getYCandPct = (pct: number): number => {
+    return PAD_TOP + (1 - (pct - minCandPct) / spanCandPct) * plotH
+  }
+
+  const marginPolyline = points
+    .map((pt, idx) => `${getX(pt, idx).toFixed(1)},${getYMargin(pt.margin_cand1_minus_cand2_pp).toFixed(1)}`)
+    .join(' ')
+
+  const marginAreaPath =
+    points.length > 1
+      ? `M ${getX(points[0], 0).toFixed(1)},${zeroY.toFixed(1)} ` +
+        points
+          .map(
+            (pt, idx) =>
+              `L ${getX(pt, idx).toFixed(1)},${getYMargin(pt.margin_cand1_minus_cand2_pp).toFixed(1)}`,
+          )
+          .join(' ') +
+        ` L ${getX(points[points.length - 1], points.length - 1).toFixed(1)},${zeroY.toFixed(1)} Z`
+      : ''
+
+  const cand1Polyline = points
+    .map((pt, idx) => `${getX(pt, idx).toFixed(1)},${getYCandPct(pt.cand1_pct).toFixed(1)}`)
+    .join(' ')
+  const cand2Polyline = points
+    .map((pt, idx) => `${getX(pt, idx).toFixed(1)},${getYCandPct(pt.cand2_pct).toFixed(1)}`)
+    .join(' ')
+
+  return (
+    <section
+      aria-label="Linha do tempo da apuração e Replay 2022"
+      data-testid="margin-timeline-section"
+      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
+    >
+      {/* Cabeçalho e alternância Ao Vivo (2026) vs. Replay Histórico 2022 */}
+      <div className="flex flex-col gap-3 border-b border-slate-200 pb-3.5 lg:flex-row lg:items-center lg:justify-between dark:border-[#1F1F24]">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <LineChart
+              className="h-5 w-5 text-slate-700 dark:text-slate-300"
+              aria-hidden="true"
+            />
+            <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white">
+              Linha do Tempo da Apuração
+            </h2>
+
+            {/* Ícone ⓘ discreto com Tooltip dinâmico */}
+            <div className="group relative inline-flex items-center">
+              <button
+                type="button"
+                className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none dark:text-slate-500 dark:hover:text-slate-300"
+                aria-label="Informações sobre a linha do tempo"
+              >
+                <Info className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <div className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-72 rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs leading-relaxed text-slate-200 shadow-2xl group-hover:block group-focus-within:block">
+                <p className="font-medium text-white">Trajetória e Cruzamento</p>
+                <p className="mt-1 text-slate-300">
+                  Evolução temporal da diferença em pontos percentuais ({cand1.ballot_name} − {cand2.ballot_name}) correlacionada com a porcentagem de urnas apuradas e o horário oficial de divulgação do TSE.
+                </p>
+              </div>
+            </div>
+
+            {isReplayMode ? (
+              <span
+                data-testid="timeline-replay-badge"
+                className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950"
+              >
+                <History className="h-3.5 w-3.5" aria-hidden="true" />
+                REPLAY HISTÓRICO 2022 (30/10/2022)
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                <Radio className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                Apuração 2026 ({snapshot.cargo_name} — {snapshot.uf})
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Botões de modo (Ao vivo 2026 vs Replay 2022) e eixo */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div
+            role="group"
+            aria-label="Alternar entre Apuração 2026 e Replay Histórico 2022"
+            className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+          >
+            <button
+              type="button"
+              data-testid="timeline-mode-live-btn"
+              aria-pressed={!isReplayMode}
+              onClick={() => {
+                if (isReplayMode) onStopReplay()
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                !isReplayMode
+                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+              }`}
+            >
+              Ao vivo (2026)
+            </button>
+            <button
+              type="button"
+              data-testid="timeline-mode-replay-btn"
+              aria-pressed={isReplayMode}
+              onClick={() => {
+                if (!isReplayMode) onStartReplay()
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                isReplayMode
+                  ? 'bg-amber-500 text-slate-950 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+              }`}
+            >
+              <History className="h-3.5 w-3.5" aria-hidden="true" />
+              Replay 2022
+            </button>
+          </div>
+
+          <div
+            role="group"
+            aria-label="Eixo horizontal da linha do tempo"
+            className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+          >
+            <button
+              type="button"
+              data-testid="timeline-xaxis-pct-btn"
+              aria-pressed={xAxisMode === 'pct'}
+              onClick={() => setXAxisMode('pct')}
+              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition ${
+                xAxisMode === 'pct'
+                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              <Percent className="h-3 w-3" aria-hidden="true" />% Urnas
+            </button>
+            <button
+              type="button"
+              data-testid="timeline-xaxis-time-btn"
+              aria-pressed={xAxisMode === 'time'}
+              onClick={() => setXAxisMode('time')}
+              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition ${
+                xAxisMode === 'time'
+                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              <Clock className="h-3 w-3" aria-hidden="true" />
+              Horário
+            </button>
+          </div>
+
+          <div
+            role="group"
+            aria-label="Série exibida no gráfico"
+            className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800"
+          >
+            <button
+              type="button"
+              data-testid="timeline-series-margin-btn"
+              aria-pressed={chartType === 'margin'}
+              onClick={() => setChartType('margin')}
+              className={`rounded-lg px-2 py-1 text-xs font-semibold transition ${
+                chartType === 'margin'
+                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              Margem (A − B)
+            </button>
+            <button
+              type="button"
+              data-testid="timeline-series-both-btn"
+              aria-pressed={chartType === 'both_candidates'}
+              onClick={() => setChartType('both_candidates')}
+              className={`rounded-lg px-2 py-1 text-xs font-semibold transition ${
+                chartType === 'both_candidates'
+                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
+                  : 'text-slate-600 dark:text-slate-300'
+              }`}
+            >
+              % Candidatos
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Painel de controle do Replay 2022 integrado */}
+      {isReplayMode && replayBundle && (
+        <div
+          data-testid="timeline-replay-controls"
+          className="mt-3 rounded-xl border border-amber-300 bg-amber-50/90 p-3 text-xs text-amber-950 dark:border-amber-800/70 dark:bg-amber-950/40 dark:text-amber-100"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="font-bold">
+                {replayBundle.title} — Quadro {replayFrameIndex + 1} de{' '}
+                {replayBundle.frames.length}
+              </p>
+              <p className="text-[11px] opacity-90">
+                {replayBundle.disclaimer}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                data-testid="timeline-replay-play-pause"
+                onClick={onToggleReplayPlay}
+                className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-white dark:text-slate-950"
+              >
+                {isReplayPlaying ? (
+                  <>
+                    <Pause className="h-3.5 w-3.5" aria-hidden="true" />
+                    Pausar
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-3.5 w-3.5" aria-hidden="true" />
+                    Reproduzir
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectReplayFrame(0)}
+                className="inline-flex items-center gap-1 rounded-lg border border-amber-400 bg-white px-2 py-1 text-xs font-medium text-amber-950 dark:border-amber-700 dark:bg-slate-900 dark:text-amber-200"
+                title="Voltar ao início do Replay 2022 (0%)"
+              >
+                <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+                0%
+              </button>
+              <select
+                aria-label="Velocidade do Replay 2022 na linha do tempo"
+                value={replaySpeedMs}
+                onChange={(e) => onChangeReplaySpeed(Number(e.target.value))}
+                className="rounded-lg border border-amber-400 bg-white px-2 py-1 text-xs font-semibold text-slate-900 dark:border-amber-700 dark:bg-slate-900 dark:text-slate-100"
+              >
+                <option value={2500}>Velocidade 1x</option>
+                <option value={1200}>Velocidade 2x</option>
+                <option value={600}>Velocidade 4x</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <span className="font-mono text-[11px]">17:00 (0%)</span>
+            <input
+              type="range"
+              aria-label="Selecionar instante do Replay 2022"
+              min={0}
+              max={Math.max(0, replayBundle.frames.length - 1)}
+              value={replayFrameIndex}
+              onChange={(e) => onSelectReplayFrame(Number(e.target.value))}
+              className="h-2 flex-1 cursor-pointer accent-amber-600"
+            />
+            <span className="font-mono text-[11px]">21:30 (100%)</span>
+          </div>
+        </div>
+      )}
+
+      {/* Gráfico SVG ou Estado Inicial (0% apurado) */}
+      {points.length === 0 ? (
+        <div
+          data-testid="timeline-empty-state"
+          className="mt-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-6 text-center text-xs text-slate-600 dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-400"
+        >
+          Aguardando os primeiros snapshots com votos válidos apurados para
+          traçar a curva da margem ao longo do tempo. Experimente acionar o
+          botão <strong>Replay 2022</strong> acima para ver a curva histórica
+          completa de 0% a 100%.
+        </div>
+      ) : (
+        <div className="mt-3 space-y-3">
+          {/* Resumo do ponto em foco (último ou sob o cursor) */}
+          {activePoint && (
+            <div
+              data-testid="timeline-active-point-summary"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+            >
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  Horário TSE: {activePoint.timestamp}
+                </span>
+                <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-slate-800 dark:bg-slate-700 dark:text-slate-200">
+                  {formatPct(activePoint.pct_counted)} das urnas
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <span className={`inline-flex items-center gap-1 font-medium ${theme1.textAccentClass}`}>
+                  <span
+                    className={`inline-block h-2.5 w-2.5 rounded-full ${theme1.dotClass}`}
+                    aria-hidden="true"
+                  />
+                  {cand1.ballot_name}:{' '}
+                  <strong className="font-mono">
+                    {formatPct(activePoint.cand1_pct)}
+                  </strong>
+                </span>
+                <span className={`inline-flex items-center gap-1 font-medium ${theme2.textAccentClass}`}>
+                  <span
+                    className={`inline-block h-2.5 w-2.5 rounded-full ${theme2.dotClass}`}
+                    aria-hidden="true"
+                  />
+                  {cand2.ballot_name}:{' '}
+                  <strong className="font-mono">
+                    {formatPct(activePoint.cand2_pct)}
+                  </strong>
+                </span>
+                <span className="rounded bg-slate-900 px-2 py-0.5 font-mono text-[11px] font-bold text-white dark:bg-white dark:text-slate-950">
+                  Margem ({cand1.ballot_name.split(' ')[0]} −{' '}
+                  {cand2.ballot_name.split(' ')[0]}):{' '}
+                  {formatSignedPP(activePoint.margin_cand1_minus_cand2_pp)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Área gráfica SVG responsiva */}
+          <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white p-2 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
+            <svg
+              viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+              role="img"
+              aria-label={`Gráfico da linha do tempo da apuração (${points.length} snapshots registrados)`}
+              className="h-auto w-full min-w-[300px] select-none"
+            >
+              <defs>
+                <linearGradient
+                  id="margin-area-grad"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor={theme1.hexLight} stopOpacity="0.28" />
+                  <stop offset="50%" stopColor="#64748b" stopOpacity="0.05" />
+                  <stop offset="100%" stopColor={theme2.hexLight} stopOpacity="0.28" />
+                </linearGradient>
+              </defs>
+
+              {/* Grade Horizontal */}
+              {chartType === 'margin' ? (
+                <>
+                  {[-yBoundMargin, -yBoundMargin / 2, 0, yBoundMargin / 2, yBoundMargin].map(
+                    (val) => {
+                      const y = getYMargin(val)
+                      const isZero = Math.abs(val) < 1e-6
+                      return (
+                        <g key={val}>
+                          <line
+                            x1={PAD_LEFT}
+                            y1={y}
+                            x2={SVG_WIDTH - PAD_RIGHT}
+                            y2={y}
+                            stroke={
+                              isZero
+                                ? '#64748b'
+                                : 'rgba(148, 163, 184, 0.25)'
+                            }
+                            strokeWidth={isZero ? 1.5 : 1}
+                            strokeDasharray={isZero ? '4 3' : undefined}
+                          />
+                          <text
+                            x={PAD_LEFT - 6}
+                            y={y}
+                            textAnchor="end"
+                            dominantBaseline="central"
+                            className="fill-slate-500 font-mono text-[10px] dark:fill-slate-400"
+                          >
+                            {val > 0 ? `+${val.toFixed(1)}` : val.toFixed(1)}
+                          </text>
+                        </g>
+                      )
+                    },
+                  )}
+                </>
+              ) : (
+                <>
+                  {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+                    const val = minCandPct + t * spanCandPct
+                    const y = getYCandPct(val)
+                    return (
+                      <g key={t}>
+                        <line
+                          x1={PAD_LEFT}
+                          y1={y}
+                          x2={SVG_WIDTH - PAD_RIGHT}
+                          y2={y}
+                          stroke="rgba(148, 163, 184, 0.25)"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={PAD_LEFT - 6}
+                          y={y}
+                          textAnchor="end"
+                          dominantBaseline="central"
+                          className="fill-slate-500 font-mono text-[10px] dark:fill-slate-400"
+                        >
+                          {val.toFixed(1)}%
+                        </text>
+                      </g>
+                    )
+                  })}
+                </>
+              )}
+
+              {/* Eixo X: marcas de % de urnas apuradas ou horários */}
+              {xAxisMode === 'pct'
+                ? [0, 20, 40, 60, 80, 100].map((pctTick) => {
+                    const x = PAD_LEFT + (pctTick / 100) * plotW
+                    return (
+                      <g key={pctTick}>
+                        <line
+                          x1={x}
+                          y1={PAD_TOP}
+                          x2={x}
+                          y2={SVG_HEIGHT - PAD_BOTTOM}
+                          stroke="rgba(148, 163, 184, 0.18)"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={x}
+                          y={SVG_HEIGHT - PAD_BOTTOM + 16}
+                          textAnchor="middle"
+                          className="fill-slate-500 font-mono text-[10px] dark:fill-slate-400"
+                        >
+                          {pctTick}%
+                        </text>
+                      </g>
+                    )
+                  })
+                : points.map((pt, idx) => {
+                    const step = Math.max(1, Math.floor(points.length / 5))
+                    if (idx % step !== 0 && idx !== points.length - 1) {
+                      return null
+                    }
+                    const x = getX(pt, idx)
+                    return (
+                      <text
+                        key={`t-${pt.timestamp}-${idx}`}
+                        x={x}
+                        y={SVG_HEIGHT - PAD_BOTTOM + 16}
+                        textAnchor="middle"
+                        className="fill-slate-500 font-mono text-[10px] dark:fill-slate-400"
+                      >
+                        {pt.timestamp.slice(0, 5)}
+                      </text>
+                    )
+                  })}
+
+              {/* Rótulo do eixo X */}
+              <text
+                x={PAD_LEFT + plotW / 2}
+                y={SVG_HEIGHT - 6}
+                textAnchor="middle"
+                className="fill-slate-500 font-sans text-[10px] font-semibold dark:fill-slate-400"
+              >
+                {xAxisMode === 'pct'
+                  ? 'Percentual de urnas apuradas (%)'
+                  : 'Horário oficial do snapshot (Brasília)'}
+              </text>
+
+              {/* Séries de Dados */}
+              {chartType === 'margin' ? (
+                <>
+                  {marginAreaPath && (
+                    <path d={marginAreaPath} fill="url(#margin-area-grad)" />
+                  )}
+                  <polyline
+                    fill="none"
+                    stroke="#475569"
+                    strokeWidth="2.4"
+                    points={marginPolyline}
+                  />
+                  {points.map((pt, idx) => {
+                    const cx = getX(pt, idx)
+                    const cy = getYMargin(pt.margin_cand1_minus_cand2_pp)
+                    const isHovered =
+                      (hoveredIdx ?? points.length - 1) === idx
+                    const dotColor =
+                      pt.margin_cand1_minus_cand2_pp > 0
+                        ? theme1.hexLight
+                        : pt.margin_cand1_minus_cand2_pp < 0
+                          ? theme2.hexLight
+                          : '#64748b'
+                    return (
+                      <g
+                        key={`pt-${pt.timestamp}-${idx}`}
+                        onMouseEnter={() => setHoveredIdx(idx)}
+                        onClick={() => setHoveredIdx(idx)}
+                        className="cursor-pointer"
+                      >
+                        <circle
+                          cx={cx}
+                          cy={cy}
+                          r={isHovered ? 5.5 : 3.5}
+                          fill={dotColor}
+                          stroke="#ffffff"
+                          strokeWidth="1.5"
+                        />
+                        <title>
+                          {`${pt.timestamp} (${formatPct(pt.pct_counted)} apurado): Margem ${formatSignedPP(pt.margin_cand1_minus_cand2_pp)}`}
+                        </title>
+                      </g>
+                    )
+                  })}
+                </>
+              ) : (
+                <>
+                  {/* Curva Candidato 1 */}
+                  <polyline
+                    fill="none"
+                    stroke={theme1.hexLight}
+                    strokeWidth="2.5"
+                    points={cand1Polyline}
+                  />
+                  {/* Curva Candidato 2 (tracejada para distinção não-dependente apenas de cor) */}
+                  <polyline
+                    fill="none"
+                    stroke={theme2.hexLight}
+                    strokeWidth="2.5"
+                    strokeDasharray="6 3"
+                    points={cand2Polyline}
+                  />
+                  {points.map((pt, idx) => {
+                    const cx = getX(pt, idx)
+                    const cy1 = getYCandPct(pt.cand1_pct)
+                    const cy2 = getYCandPct(pt.cand2_pct)
+                    return (
+                      <g
+                        key={`both-${pt.timestamp}-${idx}`}
+                        onMouseEnter={() => setHoveredIdx(idx)}
+                        onClick={() => setHoveredIdx(idx)}
+                        className="cursor-pointer"
+                      >
+                        <circle
+                          cx={cx}
+                          cy={cy1}
+                          r={3.2}
+                          fill={theme1.hexLight}
+                          stroke="#ffffff"
+                          strokeWidth="1"
+                        />
+                        <circle
+                          cx={cx}
+                          cy={cy2}
+                          r={3.2}
+                          fill={theme2.hexLight}
+                          stroke="#ffffff"
+                          strokeWidth="1"
+                        />
+                      </g>
+                    )
+                  })}
+                </>
+              )}
+            </svg>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+            <span>
+              Acima de 0,00 p.p.:{' '}
+              <strong className={theme1.textAccentClass}>
+                {cand1.ballot_name}
+              </strong>{' '}
+              à frente · Abaixo de 0,00 p.p.:{' '}
+              <strong className={theme2.textAccentClass}>
+                {cand2.ballot_name}
+              </strong>{' '}
+              à frente
+            </span>
+            <span>
+              Snapshots gravados nesta série: {formatInt(points.length)} · Maior
+              diferença registrada: {formatPP(maxAbsMargin)}
+            </span>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
