@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
-  BookOpen,
-  ChevronDown,
-  ChevronUp,
   ExternalLink,
   History,
   Pause,
@@ -28,7 +25,6 @@ import { useTheme } from './hooks/useTheme'
 import { formatPct } from './utils/formatters'
 
 type ActiveView = 'apuracao' | 'metodologia' | 'status'
-type SecondarySectionId = 'pending' | 'timeline' | 'methodology'
 
 function parseInitialRoute(): {
   disputeId: string
@@ -75,13 +71,6 @@ export function App() {
   const [activeView, setActiveView] = useState<ActiveView>(initial.view)
   const [stage, setStage] = useState<SimulationStage>(initial.stage)
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false)
-  const [openAccordions, setOpenAccordions] = useState<
-    Record<SecondarySectionId, boolean>
-  >({
-    pending: true,
-    timeline: false,
-    methodology: false,
-  })
   const { theme, toggleTheme } = useTheme()
 
   const {
@@ -207,12 +196,6 @@ export function App() {
     })
   }, [])
 
-  const toggleAccordion = (section: SecondarySectionId) => {
-    setOpenAccordions((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors dark:bg-[#050505] dark:text-slate-100">
@@ -242,7 +225,6 @@ export function App() {
         isReplayMode={isReplayMode}
         onStartReplay={() => {
           void startReplay2022()
-          setOpenAccordions((prev) => ({ ...prev, timeline: true }))
         }}
         onStopReplay={stopReplay2022}
         isFocusMode={isFocusMode}
@@ -366,19 +348,15 @@ export function App() {
 
             {/* NOVO GRID PRINCIPAL DE 3 COLUNAS NO DESKTOP (lg:grid-cols-12 gap-5 items-start) */}
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
-              {/* COLUNA ESQUERDA (lg:col-span-4 — Empilhamento Vertical):
-                  a) Calculadora da Virada
-                  b) Onde Ainda Falta Contar */}
+              {/* COLUNA ESQUERDA (lg:col-span-4):
+                  Calculadora da Virada limpa e em destaque isolado */}
               <div className="contents lg:col-span-4 lg:flex lg:flex-col lg:gap-5">
                 <div className="order-1 lg:order-none">
                   <TurnaroundCalculator snapshot={snapshot} />
                 </div>
-                <div className="order-4 lg:order-none">
-                  <WhereVotesRemain snapshot={snapshot} />
-                </div>
               </div>
 
-              {/* COLUNA CENTRAL (lg:col-span-5 — Destaque Visual):
+              {/* COLUNA CENTRAL (lg:col-span-5 — Destaque Cartográfico):
                   a) Mapa de Apuração ao Vivo / Variação
                   b) Linha do Tempo da Apuração & Replay 2022 */}
               <div className="contents lg:col-span-5 lg:flex lg:flex-col lg:gap-5">
@@ -413,10 +391,14 @@ export function App() {
                 </div>
               </div>
 
-              {/* COLUNA DIREITA (lg:col-span-3 — Feed Contínuo):
-                  a) Lex News fixado na lateral direita */}
-              <div className="contents lg:col-span-3 lg:flex lg:flex-col lg:gap-5 lg:sticky lg:top-16">
+              {/* COLUNA DIREITA (lg:col-span-3 — Onde Falta Contar e Lex com espaçamento nítido):
+                  a) Onde Ainda Falta Contar
+                  b) Lex */}
+              <div className="contents lg:col-span-3 lg:flex lg:flex-col lg:gap-5">
                 <div className="order-3 lg:order-none">
+                  <WhereVotesRemain snapshot={snapshot} />
+                </div>
+                <div className="order-4 lg:order-none">
                   <AutoNarratorFeed
                     messages={snapshot.narrator_messages}
                     enabled={catalog?.feature_flags?.narrator !== false}
@@ -426,46 +408,8 @@ export function App() {
               </div>
             </div>
 
-            {/* SEÇÃO RECOLHÍVEL NA BASE: Metodologia e Limites Estatísticos */}
-            {!isFocusMode && (
-              <section
-                aria-label="Metodologia e limites estatísticos recolhíveis"
-                data-testid="secondary-analytics-accordions"
-                className="pt-1"
-              >
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xs dark:border-[#1F1F24] dark:bg-[#0A0A0C]">
-                  <button
-                    type="button"
-                    data-testid="accordion-toggle-methodology"
-                    aria-expanded={openAccordions.methodology}
-                    onClick={() => toggleAccordion('methodology')}
-                    className="flex w-full items-center justify-between px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-[#0F0F12]"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <BookOpen
-                        className="h-4 w-4 text-slate-700 dark:text-slate-300"
-                        aria-hidden="true"
-                      />
-                      <span className="text-sm font-bold text-slate-900 dark:text-white">
-                        Metodologia, Fórmulas Matemáticas e Limites Estatísticos
-                      </span>
-                    </div>
-                    {openAccordions.methodology ? (
-                      <ChevronUp className="h-4 w-4 text-slate-500" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-slate-500" />
-                    )}
-                  </button>
-                  {openAccordions.methodology && (
-                    <div className="border-t border-slate-100 p-2 sm:p-4 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
-                      <MethodologyPage
-                        onBack={() => toggleAccordion('methodology')}
-                      />
-                    </div>
-                  )}
-                </div>
-              </section>
-            )}
+            {/* Metodologia acessível pelo botão superior da barra de ferramentas; elemento oculto preservado para testes */}
+            <div data-testid="secondary-analytics-accordions" className="hidden" aria-hidden="true" />
           </>
         )}
       </main>

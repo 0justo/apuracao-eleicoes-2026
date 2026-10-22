@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Avatar oficial neutro de CADU DE LULA (PT - 13)">
+  <defs>
+    <clipPath id="clip-200002534001">
+      <rect width="160" height="160" rx="24" />
+    </clipPath>
+    <linearGradient id="bg-200002534001" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#991B1B" />
+      <stop offset="100%" stop-color="#DC2626" />
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#clip-200002534001)">
+    <rect width="160" height="160" fill="url(#bg-200002534001)" />
+    <circle cx="80" cy="54" r="26" fill="#F8FAFC" fill-opacity="0.95" />
+    <path d="M26 130 C26 90, 134 90, 134 130 Z" fill="#F8FAFC" fill-opacity="0.95" />
+    <rect x="0" y="126" width="160" height="34" fill="#7F1D1D" fill-opacity="0.92" />
+    <text x="80" y="143" text-anchor="middle" dominant-baseline="central" fill="#FFFFFF" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="800">PT • 13</text>
+  </g>
+</svg>

@@ -144,12 +144,24 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
       <div className="mt-3 sm:mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
         {[cand1, cand2].map((cand, idx) => {
           const theme = themes[idx]
-          const primaryPhotoSrc = `/avatars/${cand.sqcand}.jpg`
-          const fallbackSvgSrc = `/avatars/${cand.sqcand}.svg`
-          const avatarSrc =
+          const isCadu =
+            cand.sqcand === '200002534001' ||
+            cand.ballot_name.toUpperCase().includes('CADU')
+          const primaryPhotoSrc = isCadu
+            ? '/avatars/cadu-de-lula-2026.svg'
+            : `/avatars/${cand.sqcand}.jpg?v=2`
+          const fallbackSvgSrc = isCadu
+            ? '/avatars/cadu-de-lula-2026.svg'
+            : `/avatars/${cand.sqcand}.svg?v=2`
+          const rawSrc =
             cand.photo_url && cand.photo_url.startsWith('/avatars/')
               ? cand.photo_url
               : primaryPhotoSrc
+          const avatarSrc = isCadu
+            ? '/avatars/cadu-de-lula-2026.svg'
+            : rawSrc.includes('?')
+              ? rawSrc
+              : `${rawSrc}?v=2`
           const tseOfficialPhotoUrl =
             cand.tse_photo_url ??
             `https://resultados.tse.jus.br/oficial/${snapshot.cycle}/${snapshot.election_code_2t}/fotos/${snapshot.uf.toLowerCase()}/f${snapshot.election_code_2t}${cand.sqcand}_div.jpg`

@@ -174,7 +174,7 @@ export function AutoNarratorFeed({
 
           <div className="flex items-center gap-1.5">
             <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white">
-              Lex News
+              Lex
             </h2>
 
             {/* Ícone ⓘ discreto com Tooltip dinâmico */}

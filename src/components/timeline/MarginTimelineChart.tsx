@@ -40,7 +40,7 @@ interface MarginTimelineChartProps {
 const SVG_WIDTH = 720
 const SVG_HEIGHT = 270
 const PAD_LEFT = 54
-const PAD_RIGHT = 24
+const PAD_RIGHT = 56
 const PAD_TOP = 24
 const PAD_BOTTOM = 42
 
@@ -61,7 +61,7 @@ export function MarginTimelineChart({
   const [theme1, theme2] = getDisputePairThemes(cand1, cand2)
   const [xAxisMode, setXAxisMode] = useState<'pct' | 'time'>('pct')
   const [chartType, setChartType] = useState<'margin' | 'both_candidates'>(
-    'margin',
+    'both_candidates',
   )
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
 
@@ -132,6 +132,50 @@ export function MarginTimelineChart({
   const cand2Polyline = points
     .map((pt, idx) => `${getX(pt, idx).toFixed(1)},${getYCandPct(pt.cand2_pct).toFixed(1)}`)
     .join(' ')
+
+  const bottomY = PAD_TOP + plotH
+  const cand1AreaPath =
+    points.length > 1
+      ? `M ${getX(points[0], 0).toFixed(1)},${bottomY.toFixed(1)} ` +
+        points
+          .map(
+            (pt, idx) =>
+              `L ${getX(pt, idx).toFixed(1)},${getYCandPct(pt.cand1_pct).toFixed(1)}`,
+          )
+          .join(' ') +
+        ` L ${getX(points[points.length - 1], points.length - 1).toFixed(1)},${bottomY.toFixed(1)} Z`
+      : ''
+  const cand2AreaPath =
+    points.length > 1
+      ? `M ${getX(points[0], 0).toFixed(1)},${bottomY.toFixed(1)} ` +
+        points
+          .map(
+            (pt, idx) =>
+              `L ${getX(pt, idx).toFixed(1)},${getYCandPct(pt.cand2_pct).toFixed(1)}`,
+          )
+          .join(' ') +
+        ` L ${getX(points[points.length - 1], points.length - 1).toFixed(1)},${bottomY.toFixed(1)} Z`
+      : ''
+
+  const lastPt = points.length > 0 ? points[points.length - 1] : null
+  const lastIdx = points.length - 1
+  const lastX = lastPt ? getX(lastPt, lastIdx) : 0
+  const rawLastY1 = lastPt ? getYCandPct(lastPt.cand1_pct) : 0
+  const rawLastY2 = lastPt ? getYCandPct(lastPt.cand2_pct) : 0
+
+  let badgeY1 = rawLastY1
+  let badgeY2 = rawLastY2
+  if (Math.abs(badgeY1 - badgeY2) < 20) {
+    if (badgeY1 <= badgeY2) {
+      badgeY1 -= 9
+      badgeY2 += 9
+    } else {
+      badgeY1 += 9
+      badgeY2 -= 9
+    }
+  }
+  const badgeX =
+    lastX + 54 > SVG_WIDTH - 4 ? Math.max(PAD_LEFT + 4, lastX - 52) : lastX + 6
 
   return (
     <section
@@ -444,6 +488,26 @@ export function MarginTimelineChart({
                   <stop offset="50%" stopColor="#64748b" stopOpacity="0.05" />
                   <stop offset="100%" stopColor={theme2.hexLight} stopOpacity="0.28" />
                 </linearGradient>
+                <linearGradient
+                  id="cand1-area-grad"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor={theme1.hexLight} stopOpacity="0.22" />
+                  <stop offset="100%" stopColor={theme1.hexLight} stopOpacity="0.02" />
+                </linearGradient>
+                <linearGradient
+                  id="cand2-area-grad"
+                  x1="0"
+                  y1="0"
+                  x2="0"
+                  y2="1"
+                >
+                  <stop offset="0%" stopColor={theme2.hexLight} stopOpacity="0.22" />
+                  <stop offset="100%" stopColor={theme2.hexLight} stopOpacity="0.02" />
+                </linearGradient>
               </defs>
 
               {/* Grade Horizontal */}
@@ -615,6 +679,14 @@ export function MarginTimelineChart({
                 </>
               ) : (
                 <>
+                  {/* Suave degradê/brilho sob as curvas */}
+                  {cand1AreaPath && (
+                    <path d={cand1AreaPath} fill="url(#cand1-area-grad)" />
+                  )}
+                  {cand2AreaPath && (
+                    <path d={cand2AreaPath} fill="url(#cand2-area-grad)" />
+                  )}
+
                   {/* Curva Candidato 1 */}
                   <polyline
                     fill="none"
@@ -622,18 +694,21 @@ export function MarginTimelineChart({
                     strokeWidth="2.5"
                     points={cand1Polyline}
                   />
-                  {/* Curva Candidato 2 (tracejada para distinção não-dependente apenas de cor) */}
+                  {/* Curva Candidato 2 */}
                   <polyline
                     fill="none"
                     stroke={theme2.hexLight}
                     strokeWidth="2.5"
-                    strokeDasharray="6 3"
                     points={cand2Polyline}
                   />
+
+                  {/* Pontos nítidos em cada snapshot */}
                   {points.map((pt, idx) => {
                     const cx = getX(pt, idx)
                     const cy1 = getYCandPct(pt.cand1_pct)
                     const cy2 = getYCandPct(pt.cand2_pct)
+                    const isHovered =
+                      (hoveredIdx ?? points.length - 1) === idx
                     return (
                       <g
                         key={`both-${pt.timestamp}-${idx}`}
@@ -644,39 +719,97 @@ export function MarginTimelineChart({
                         <circle
                           cx={cx}
                           cy={cy1}
-                          r={3.2}
+                          r={isHovered ? 5 : 3.5}
                           fill={theme1.hexLight}
                           stroke="#ffffff"
-                          strokeWidth="1"
+                          strokeWidth="1.5"
                         />
                         <circle
                           cx={cx}
                           cy={cy2}
-                          r={3.2}
+                          r={isHovered ? 5 : 3.5}
+                          fill={theme2.hexLight}
+                          stroke="#ffffff"
+                          strokeWidth="1.5"
+                        />
+                        <title>
+                          {`${pt.timestamp} (${formatPct(pt.pct_counted)} apurado): ${cand1.ballot_name} ${formatPct(pt.cand1_pct)} × ${cand2.ballot_name} ${formatPct(pt.cand2_pct)}`}
+                        </title>
+                      </g>
+                    )
+                  })}
+
+                  {/* Rótulos com a porcentagem final no final da linha */}
+                  {lastPt && (
+                    <g data-testid="timeline-final-pct-badges">
+                      <g>
+                        <rect
+                          x={badgeX}
+                          y={badgeY1 - 9}
+                          width={48}
+                          height={18}
+                          rx={4}
+                          fill={theme1.hexLight}
+                          stroke="#ffffff"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={badgeX + 24}
+                          y={badgeY1}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          className="fill-white font-mono text-[10px] font-bold"
+                        >
+                          {formatPct(lastPt.cand1_pct)}
+                        </text>
+                      </g>
+                      <g>
+                        <rect
+                          x={badgeX}
+                          y={badgeY2 - 9}
+                          width={48}
+                          height={18}
+                          rx={4}
                           fill={theme2.hexLight}
                           stroke="#ffffff"
                           strokeWidth="1"
                         />
+                        <text
+                          x={badgeX + 24}
+                          y={badgeY2}
+                          textAnchor="middle"
+                          dominantBaseline="central"
+                          className="fill-white font-mono text-[10px] font-bold"
+                        >
+                          {formatPct(lastPt.cand2_pct)}
+                        </text>
                       </g>
-                    )
-                  })}
+                    </g>
+                  )}
                 </>
               )}
             </svg>
           </div>
 
           <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
-            <span>
-              Acima de 0,00 p.p.:{' '}
-              <strong className={theme1.textAccentClass}>
-                {cand1.ballot_name}
-              </strong>{' '}
-              à frente · Abaixo de 0,00 p.p.:{' '}
-              <strong className={theme2.textAccentClass}>
-                {cand2.ballot_name}
-              </strong>{' '}
-              à frente
-            </span>
+            {chartType === 'margin' ? (
+              <span>
+                Acima de 0,00 p.p.:{' '}
+                <strong className={theme1.textAccentClass}>
+                  {cand1.ballot_name}
+                </strong>{' '}
+                à frente · Abaixo de 0,00 p.p.:{' '}
+                <strong className={theme2.textAccentClass}>
+                  {cand2.ballot_name}
+                </strong>{' '}
+                à frente
+              </span>
+            ) : (
+              <span>
+                Linha <strong className={theme1.textAccentClass}>{cand1.ballot_name}</strong> vs.{' '}
+                Linha <strong className={theme2.textAccentClass}>{cand2.ballot_name}</strong> (% dos votos válidos ao longo da contagem)
+              </span>
+            )}
             <span>
               Snapshots gravados nesta série: {formatInt(points.length)} · Maior
               diferença registrada: {formatPP(maxAbsMargin)}
