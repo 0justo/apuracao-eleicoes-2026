@@ -36,16 +36,16 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
     <section
       aria-label={`Placar oficial de votos apurados para ${snapshot.cargo_name} (${snapshot.uf_name})`}
       data-testid="neutral-scoreboard"
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
+      className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm sm:p-5 dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
     >
       {/* Cabeçalho da Disputa + Velocímetro de Ritmo de Apuração + Progresso de Seções */}
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold uppercase tracking-wide text-slate-700 dark:bg-[#0F0F12] dark:border dark:border-[#1F1F24] dark:text-slate-300">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-700 dark:bg-[#0F0F12] dark:border dark:border-[#1F1F24] dark:text-slate-300">
               2º Turno • {snapshot.cargo_name}
             </span>
-            <h2 className="text-lg font-bold text-slate-900 sm:text-xl dark:text-white">
+            <h2 className="text-base font-bold text-slate-900 sm:text-xl dark:text-white">
               {snapshot.cargo_code === '1'
                 ? 'Presidente da República — Brasil'
                 : `Governador — ${snapshot.uf_name} (${snapshot.uf})`}
@@ -64,7 +64,7 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
         </div>
 
         {/* Velocímetro de Ritmo de Apuração + Percentual Geral */}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2.5 sm:gap-3">
           {/* Widget do Velocímetro de Ritmo de Apuração */}
           <CountingSpeedometer snapshot={snapshot} />
 
@@ -73,15 +73,15 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
             <div className="flex items-baseline gap-1">
               <span
                 data-testid="scoreboard-pct-counted"
-                className="font-mono text-2xl font-black tracking-tight text-slate-900 sm:text-3xl dark:text-white"
+                className="font-mono text-xl font-black tracking-tight text-slate-900 sm:text-3xl dark:text-white"
               >
                 {formatPct(sections.pct_counted)}
               </span>
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <span className="text-[11px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">
                 apurado
               </span>
             </div>
-            <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
+            <span className="font-mono text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400">
               {formatInt(sections.counted_sections)} de {formatInt(sections.total_sections)} seções
             </span>
           </div>
@@ -90,7 +90,7 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
 
       {/* Barra de progresso geral das urnas */}
       <div
-        className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-[#1F1F24]"
+        className="mt-2.5 sm:mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-[#1F1F24]"
         role="progressbar"
         aria-valuenow={sections.pct_counted}
         aria-valuemin={0}
@@ -106,18 +106,18 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
       </div>
 
       {/* Termômetro Frente a Frente: Cabo de Guerra Encorpado com Pino Central dos 50% */}
-      <div className="mt-4">
+      <div className="mt-3 sm:mt-4">
         <div className="mb-1.5 flex items-center justify-between text-xs font-bold">
-          <span className={`flex items-center gap-1.5 ${theme1.textAccentClass}`}>
-            <span className={`inline-block h-2.5 w-2.5 rounded-full ${theme1.dotClass}`} />
+          <span className={`flex items-center gap-1 sm:gap-1.5 ${theme1.textAccentClass}`}>
+            <span className={`inline-block h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full ${theme1.dotClass}`} />
             {cand1.ballot_name} ({cand1.party_acronym}) • {formatPct(cand1.pct_valid)}
           </span>
-          <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-            Marca de 50%
+          <span className="font-mono text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+            50%
           </span>
-          <span className={`flex items-center gap-1.5 ${theme2.textAccentClass}`}>
+          <span className={`flex items-center gap-1 sm:gap-1.5 ${theme2.textAccentClass}`}>
             {formatPct(cand2.pct_valid)} • {cand2.ballot_name} ({cand2.party_acronym})
-            <span className={`inline-block h-2.5 w-2.5 rounded-full ${theme2.dotClass}`} />
+            <span className={`inline-block h-2 w-2 sm:h-2.5 sm:w-2.5 rounded-full ${theme2.dotClass}`} />
           </span>
         </div>
         <div className="relative flex h-5 sm:h-6 w-full overflow-hidden rounded-full bg-slate-200 shadow-inner dark:bg-[#1F1F24]">
@@ -141,7 +141,7 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
       </div>
 
       {/* Cartões de Perfil dos Candidatos na ordem oficial do TSE */}
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="mt-3 sm:mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3">
         {[cand1, cand2].map((cand, idx) => {
           const theme = themes[idx]
           const primaryPhotoSrc = `/avatars/${cand.sqcand}.jpg`
@@ -159,13 +159,13 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
               key={cand.number}
               data-testid={`candidate-card-${cand.seq}`}
               data-theme-color={theme.key}
-              className={`flex flex-col justify-between rounded-xl border-2 p-3.5 transition sm:p-4 ${theme.borderClass} ${theme.cardBgClass}`}
+              className={`flex flex-col justify-between rounded-xl border-2 p-2.5 sm:p-4 transition ${theme.borderClass} ${theme.cardBgClass}`}
             >
               <div>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    {/* Foto oficial 64x64px com anel de realce na cor do candidato */}
-                    <div className="relative h-16 w-16 shrink-0 sm:h-20 sm:w-20">
+                <div className="flex items-start justify-between gap-2.5 sm:gap-3">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    {/* Foto oficial 56x56px no mobile / 80x80px no desktop */}
+                    <div className="relative h-14 w-14 shrink-0 sm:h-20 sm:w-20">
                       <img
                         src={avatarSrc}
                         data-tse-photo-url={tseOfficialPhotoUrl}
@@ -180,7 +180,7 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
                             target.src = fallbackSvgSrc
                           }
                         }}
-                        className={`h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-slate-200 object-cover object-top shadow-md ring-2 ring-offset-2 ring-offset-white dark:ring-offset-[#0A0A0C] dark:bg-slate-800 ${theme.avatarRingClass}`}
+                        className={`h-14 w-14 sm:h-20 sm:w-20 rounded-xl sm:rounded-2xl bg-slate-200 object-cover object-top shadow-md ring-2 ring-offset-2 ring-offset-white dark:ring-offset-[#0A0A0C] dark:bg-slate-800 ${theme.avatarRingClass}`}
                       />
                       <span
                         className={`-bottom-1 -right-1 absolute inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1.5 font-mono text-[11px] font-black shadow-xs ${theme.badgeClass}`}

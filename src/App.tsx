@@ -327,7 +327,7 @@ export function App() {
       )}
 
       {/* 4. Conteúdo Principal */}
-      <main className="mx-auto w-full max-w-[1840px] space-y-5 px-3 py-4 sm:px-4 sm:py-5 lg:px-6">
+      <main className="mx-auto w-full max-w-[1840px] space-y-3.5 sm:space-y-5 px-3 py-2.5 sm:px-4 sm:py-5 lg:px-6">
         {activeView === 'metodologia' ? (
           <MethodologyPage onBack={() => handleChangeView('apuracao')} />
         ) : activeView === 'status' ? (
@@ -470,7 +470,7 @@ export function App() {
         )}
       </main>
 
-      {/* 5. Rodapé de Transparência, Independência e LGPD */}
+      {/* 5. Rodapé de Transparência, Independência e LGPD (com avisos movidos do topo) */}
       <footer className="mt-10 border-t border-slate-200 bg-white py-6 text-xs text-slate-600 dark:border-[#1F1F24] dark:bg-[#050505] dark:text-slate-400">
         <div className="mx-auto flex max-w-[1840px] w-full flex-col justify-between gap-4 px-4 lg:px-6">
           {/* Aviso Único e Sóbrio Centralizado de Estimativas */}
@@ -478,17 +478,21 @@ export function App() {
             Aviso: projeções e cenários de apuração são estimativas do site, não constituem resultado oficial do TSE.
           </div>
 
-          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div className="space-y-1">
               <p className="font-semibold text-slate-800 dark:text-slate-200">
                 Apuração 2º Turno (Eleições 2026) — Aplicativo independente, sem
-                afiliação ao TSE, candidatos ou partidos.
+                afiliação ao TSE, candidatos ou partidos políticos.
               </p>
               <p>
+                Resultado parcial até 100% das urnas apuradas. Fonte oficial: Tribunal Superior Eleitoral (TSE).
+              </p>
+              <p className="text-[11px] text-slate-500">
                 Privacidade (LGPD): sem login, sem cadastro, sem cookies de
                 rastreamento individual e sem coleta de dados pessoais.
               </p>
             </div>
+
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
@@ -505,14 +509,26 @@ export function App() {
                 Status do sistema
               </button>
               <a
-                href="https://resultados.tse.jus.br"
+                href={snapshot?.source_portal_url ?? 'https://resultados.tse.jus.br'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 font-semibold text-slate-900 underline dark:text-white"
+                className="inline-flex items-center gap-1 font-semibold text-sky-600 underline dark:text-sky-400"
               >
-                Portal Resultados do TSE
+                Portal Resultados TSE
                 <ExternalLink className="h-3 w-3" aria-hidden="true" />
               </a>
+              {snapshot?.source_json_url && (
+                <a
+                  href={snapshot.source_json_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 font-medium text-slate-600 underline hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+                  title="Ver arquivo JSON bruto oficial na fonte (TSE)"
+                >
+                  ver na fonte (JSON)
+                  <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                </a>
+              )}
             </div>
           </div>
         </div>
