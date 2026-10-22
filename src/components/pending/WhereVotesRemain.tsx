@@ -335,70 +335,79 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
           return (
             <div
               key={`${loc.uf}-${loc.code_tse}`}
-              className="flex flex-col gap-2 rounded-xl border border-slate-200/90 bg-slate-50/70 p-2.5 transition hover:bg-slate-50 dark:border-[#1F1F24] dark:bg-[#0F0F12]/80 dark:hover:bg-[#0F0F12] sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2 rounded-xl border border-slate-200/90 bg-slate-50/70 p-2.5 transition hover:bg-slate-50 dark:border-[#1F1F24] dark:bg-[#0F0F12]/80 dark:hover:bg-[#0F0F12]"
             >
-              {/* Identificação da Localidade com Bandeira Oficial do Estado */}
-              <div className="flex items-center gap-2.5">
-                <StateFlag
-                  uf={loc.uf}
-                  className="w-11 h-8 rounded-md object-cover ring-1 ring-white/15 shadow-sm"
-                  alt={`Bandeira oficial de ${loc.name} (${loc.uf})`}
-                />
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">
+              {/* Linha Superior: Bandeira + Nome com truncate + Botão Cidades + Badge de Liderança */}
+              <div className="flex items-center justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <StateFlag
+                    uf={loc.uf}
+                    className="w-7 h-5 shrink-0 rounded object-cover ring-1 ring-black/10 dark:ring-white/15 shadow-2xs"
+                    alt={`Bandeira oficial de ${loc.name} (${loc.uf})`}
+                  />
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span
+                      className="truncate text-xs font-bold text-slate-900 dark:text-white"
+                      title={loc.name}
+                    >
                       {loc.name}
                     </span>
                     {loc.low_reliability && (
                       <span
-                        className="rounded bg-amber-100 px-1 py-0.2 text-[9px] font-bold text-amber-900 dark:bg-amber-950 dark:text-amber-300"
+                        className="shrink-0 rounded bg-amber-100 px-1 py-0.2 text-[9px] font-bold text-amber-900 dark:bg-amber-950 dark:text-amber-300"
                         title="Menos de 30% das urnas apuradas"
                       >
                         &lt;30%
                       </span>
                     )}
-                    {snapshot.cargo_code === '1' &&
-                      loc.scope_type === 'uf' &&
-                      loc.code_tse.toLowerCase() !== 'zz' && (
-                        <button
-                          type="button"
-                          onClick={() => void handleDrillDownPresUf(loc.code_tse)}
-                          className="ml-1 inline-flex items-center gap-0.5 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                          title={`Ver municípios de ${loc.name}`}
-                        >
-                          Cidades
-                          <ChevronRight className="h-2.5 w-2.5" aria-hidden="true" />
-                        </button>
-                      )}
                   </div>
-                  <span className="text-[10px] text-slate-500">
-                    Apurado: <strong>{formatPct(loc.pct_counted)}</strong> ({formatInt(loc.counted_sections)}/{formatInt(loc.total_sections)} seções)
-                  </span>
-                </div>
-              </div>
-
-              {/* Volume Restante com Mini Barra de Progresso + Liderança 1ºT */}
-              <div className="flex items-center justify-between gap-3 sm:justify-end">
-                <div className="min-w-[110px] text-left sm:text-right">
-                  <div className="text-xs font-extrabold text-slate-900 dark:text-white">
-                    {formatCompactNumber(loc.estimated_remaining_valid_votes)} pendentes
-                  </div>
-                  <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-                    <div
-                      className="h-full rounded-full bg-amber-500"
-                      style={{ width: `${Math.min(100, Math.max(0, loc.pct_counted))}%` }}
-                    />
-                  </div>
+                  {snapshot.cargo_code === '1' &&
+                    loc.scope_type === 'uf' &&
+                    loc.code_tse.toLowerCase() !== 'zz' && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDrillDownPresUf(loc.code_tse)}
+                        className="shrink-0 inline-flex items-center gap-0.5 rounded border border-slate-300 bg-white px-1.5 py-0.5 text-[9px] font-semibold text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                        title={`Ver municípios de ${loc.name}`}
+                      >
+                        Cidades
+                        <ChevronRight className="h-2.5 w-2.5" aria-hidden="true" />
+                      </button>
+                    )}
                 </div>
 
                 {/* Badge de Liderança no 1º Turno */}
                 <span
-                  className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-bold ${pillClass}`}
+                  className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${pillClass}`}
                   title={`Líder no 1º turno: ${loc.leader_1t_name} com margem de ${formatPP(loc.margin_1t_pp)}`}
                 >
-                  <span>{loc.leader_1t_name}</span>
+                  <span className="truncate max-w-[80px]">{loc.leader_1t_name}</span>
                   <span className="opacity-80">+{formatPP(loc.margin_1t_pp)}</span>
                 </span>
+              </div>
+
+              {/* Linha Intermediária: Apurado à esquerda vs Votos Pendentes à direita */}
+              <div className="flex items-center justify-between gap-2 text-[11px] min-w-0">
+                <span className="truncate text-slate-500 dark:text-slate-400">
+                  Apurado:{' '}
+                  <strong className="font-mono text-slate-800 dark:text-slate-200">
+                    {formatPct(loc.pct_counted)}
+                  </strong>
+                  <span className="ml-1 text-[10px] text-slate-400 hidden sm:inline">
+                    ({formatInt(loc.counted_sections)}/{formatInt(loc.total_sections)})
+                  </span>
+                </span>
+                <span className="shrink-0 font-extrabold text-slate-900 dark:text-white">
+                  {formatCompactNumber(loc.estimated_remaining_valid_votes)} pendentes
+                </span>
+              </div>
+
+              {/* Barra de Progresso da Localidade em largura total */}
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div
+                  className="h-full rounded-full bg-amber-500 transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.max(0, loc.pct_counted))}%` }}
+                />
               </div>
             </div>
           )

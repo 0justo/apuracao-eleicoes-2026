@@ -32,6 +32,19 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
   const bar1Width = totalPct > 0 ? cand1.pct_valid : 50
   const bar2Width = totalPct > 0 ? cand2.pct_valid : 50
 
+  const leader =
+    cand1.votes > cand2.votes
+      ? cand1
+      : cand2.votes > cand1.votes
+        ? cand2
+        : null
+  const leaderTheme =
+    cand1.votes > cand2.votes
+      ? theme1
+      : cand2.votes > cand1.votes
+        ? theme2
+        : null
+
   return (
     <section
       aria-label={`Placar oficial de votos apurados para ${snapshot.cargo_name} (${snapshot.uf_name})`}
@@ -88,9 +101,9 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
         </div>
       </div>
 
-      {/* Barra de progresso geral das urnas */}
+      {/* Barra de progresso geral das urnas em Gradiente Verde com Ponto Luminoso */}
       <div
-        className="mt-2.5 sm:mt-3 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-[#1F1F24]"
+        className="relative mt-2.5 sm:mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-200/60 dark:bg-[#1F1F24]"
         role="progressbar"
         aria-valuenow={sections.pct_counted}
         aria-valuemin={0}
@@ -98,11 +111,18 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
         aria-label="Percentual de seções totalizadas"
       >
         <div
-          className="h-full rounded-full bg-slate-700 transition-all duration-500 dark:bg-slate-300"
+          className="relative h-full rounded-full bg-gradient-to-r from-emerald-600 via-emerald-400 to-teal-300 shadow-[0_0_12px_rgba(16,185,129,0.45)] transition-all duration-500"
           style={{
             width: `${Math.min(100, Math.max(0, sections.pct_counted))}%`,
           }}
-        />
+        >
+          {sections.pct_counted > 0 && sections.pct_counted < 100 && (
+            <span
+              className="absolute right-0 top-1/2 h-2.5 w-2.5 -translate-y-1/2 translate-x-1/2 rounded-full bg-white shadow-[0_0_8px_#34d399] animate-pulse"
+              aria-hidden="true"
+            />
+          )}
+        </div>
       </div>
 
       {/* Termômetro Frente a Frente: Cabo de Guerra Encorpado com Pino Central dos 50% */}
@@ -148,20 +168,20 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
             cand.sqcand === '200002534001' ||
             cand.ballot_name.toUpperCase().includes('CADU')
           const primaryPhotoSrc = isCadu
-            ? '/avatars/cadu-de-lula-2026.svg'
-            : `/avatars/${cand.sqcand}.jpg?v=2`
+            ? '/avatars/cadu-xavier-real.jpg?v=3'
+            : `/avatars/${cand.sqcand}.jpg?v=3`
           const fallbackSvgSrc = isCadu
-            ? '/avatars/cadu-de-lula-2026.svg'
-            : `/avatars/${cand.sqcand}.svg?v=2`
+            ? '/avatars/cadu-xavier-real.jpg?v=3'
+            : `/avatars/${cand.sqcand}.svg?v=3`
           const rawSrc =
             cand.photo_url && cand.photo_url.startsWith('/avatars/')
               ? cand.photo_url
               : primaryPhotoSrc
           const avatarSrc = isCadu
-            ? '/avatars/cadu-de-lula-2026.svg'
+            ? '/avatars/cadu-xavier-real.jpg?v=3'
             : rawSrc.includes('?')
               ? rawSrc
-              : `${rawSrc}?v=2`
+              : `${rawSrc}?v=3`
           const tseOfficialPhotoUrl =
             cand.tse_photo_url ??
             `https://resultados.tse.jus.br/oficial/${snapshot.cycle}/${snapshot.election_code_2t}/fotos/${snapshot.uf.toLowerCase()}/f${snapshot.election_code_2t}${cand.sqcand}_div.jpg`
@@ -271,77 +291,137 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
         })}
       </div>
 
-      {/* KPIs no Rodapé do Placar: Cápsulas Visuais Compactas com Ícones */}
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {/* Diferença */}
-        <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50 p-2.5 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100/80 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
-            <ArrowLeftRight className="h-4 w-4" aria-hidden="true" />
+      {/* KPIs no Rodapé do Placar: 4 Cards Visuais com Gradiente, Tipografia Imponente e Mini-Barras */}
+      <div className="mt-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        {/* Card 1: Diferença */}
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-3 shadow-xs transition hover:border-slate-300 dark:border-[#1F1F24] dark:from-white/[0.04] dark:to-transparent dark:hover:border-slate-700">
+          <div>
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Diferença
+              </span>
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-100/80 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300">
+                <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </div>
+            </div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+              <strong className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                {formatCompactNumber(voteDiff)}
+              </strong>
+              <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
+                ({formatPP(marginPP)})
+              </span>
+            </div>
           </div>
-          <div className="min-w-0">
-            <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Diferença
-            </span>
-            <strong className="font-mono text-xs font-bold text-slate-900 sm:text-sm dark:text-white">
-              {formatCompactNumber(voteDiff)}
-            </strong>
-            <span className="ml-1 font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              ({formatPP(marginPP)})
-            </span>
+
+          <div className="mt-2.5 flex items-center">
+            {leader && leaderTheme && marginPP > 0 ? (
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${leaderTheme.badgeClass}`}
+              >
+                +{formatPP(marginPP)} para {leader.ballot_name.split(' ')[0]}
+              </span>
+            ) : (
+              <span className="font-mono text-[10px] font-semibold text-slate-400">
+                Empate técnico
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Votos Válidos */}
-        <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50 p-2.5 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-            <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+        {/* Card 2: Votos Válidos */}
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-3 shadow-xs transition hover:border-slate-300 dark:border-[#1F1F24] dark:from-white/[0.04] dark:to-transparent dark:hover:border-slate-700">
+          <div>
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Votos Válidos
+              </span>
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-100/80 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+              </div>
+            </div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+              <strong className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                {formatCompactNumber(votes.valid_votes)}
+              </strong>
+              <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                ({formatPct(votes.pct_valid_votes, 1)})
+              </span>
+            </div>
           </div>
-          <div className="min-w-0">
-            <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Votos Válidos
-            </span>
-            <strong className="font-mono text-xs font-bold text-slate-900 sm:text-sm dark:text-white">
-              {formatCompactNumber(votes.valid_votes)}
-            </strong>
-            <span className="ml-1 font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              ({formatPct(votes.pct_valid_votes, 1)})
-            </span>
+
+          {/* Mini-barra de progresso horizontal colorida */}
+          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/70 dark:bg-slate-800">
+            <div
+              className="h-full rounded-full bg-emerald-500 transition-all duration-500 dark:bg-emerald-400"
+              style={{
+                width: `${Math.min(100, Math.max(0, votes.pct_valid_votes))}%`,
+              }}
+            />
           </div>
         </div>
 
-        {/* Comparecimento */}
-        <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50 p-2.5 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100/80 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
-            <Users className="h-4 w-4" aria-hidden="true" />
+        {/* Card 3: Comparecimento */}
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-3 shadow-xs transition hover:border-slate-300 dark:border-[#1F1F24] dark:from-white/[0.04] dark:to-transparent dark:hover:border-slate-700">
+          <div>
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Comparecimento
+              </span>
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-100/80 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300">
+                <Users className="h-3.5 w-3.5" aria-hidden="true" />
+              </div>
+            </div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+              <strong className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                {formatPct(electorate.pct_turnout, 1)}
+              </strong>
+              <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                (~{formatCompactNumber(electorate.turnout_votes)})
+              </span>
+            </div>
           </div>
-          <div className="min-w-0">
-            <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Comparecimento
-            </span>
-            <strong className="font-mono text-xs font-bold text-slate-900 sm:text-sm dark:text-white">
-              {formatPct(electorate.pct_turnout, 1)}
-            </strong>
-            <span className="ml-1 font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              (~{formatCompactNumber(electorate.turnout_votes)})
-            </span>
+
+          {/* Mini-barra de progresso horizontal colorida */}
+          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/70 dark:bg-slate-800">
+            <div
+              className="h-full rounded-full bg-indigo-500 transition-all duration-500 dark:bg-indigo-400"
+              style={{
+                width: `${Math.min(100, Math.max(0, electorate.pct_turnout))}%`,
+              }}
+            />
           </div>
         </div>
 
-        {/* Urnas Apuradas */}
-        <div className="flex items-center gap-2.5 rounded-xl border border-slate-200/80 bg-slate-50 p-2.5 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100/80 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-            <Vote className="h-4 w-4" aria-hidden="true" />
+        {/* Card 4: Urnas */}
+        <div className="relative flex flex-col justify-between overflow-hidden rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50/80 p-3 shadow-xs transition hover:border-slate-300 dark:border-[#1F1F24] dark:from-white/[0.04] dark:to-transparent dark:hover:border-slate-700">
+          <div>
+            <div className="flex items-center justify-between gap-1.5">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                Urnas
+              </span>
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-100/80 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+                <Vote className="h-3.5 w-3.5" aria-hidden="true" />
+              </div>
+            </div>
+            <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+              <strong className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                {formatPct(sections.pct_counted, 1)}
+              </strong>
+              <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                ({formatCompactNumber(sections.counted_sections)}/{formatCompactNumber(sections.total_sections)})
+              </span>
+            </div>
           </div>
-          <div className="min-w-0">
-            <span className="block text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-              Urnas
-            </span>
-            <strong className="font-mono text-xs font-bold text-slate-900 sm:text-sm dark:text-white">
-              {formatCompactNumber(sections.counted_sections)}
-            </strong>
-            <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-              {' '}/ {formatCompactNumber(sections.total_sections)}
-            </span>
+
+          {/* Mini-barra de progresso horizontal colorida */}
+          <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-slate-200/70 dark:bg-slate-800">
+            <div
+              className="h-full rounded-full bg-amber-500 transition-all duration-500 dark:bg-amber-400"
+              style={{
+                width: `${Math.min(100, Math.max(0, sections.pct_counted))}%`,
+              }}
+            />
           </div>
         </div>
       </div>

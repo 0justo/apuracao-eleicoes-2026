@@ -349,10 +349,18 @@ export function App() {
             {/* NOVO GRID PRINCIPAL DE 3 COLUNAS NO DESKTOP (lg:grid-cols-12 gap-5 items-start) */}
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
               {/* COLUNA ESQUERDA (lg:col-span-4):
-                  Calculadora da Virada limpa e em destaque isolado */}
+                  a) Calculadora da Virada limpa e em destaque
+                  b) Lex em formato compacto com scroll */}
               <div className="contents lg:col-span-4 lg:flex lg:flex-col lg:gap-5">
                 <div className="order-1 lg:order-none">
                   <TurnaroundCalculator snapshot={snapshot} />
+                </div>
+                <div className="order-2 lg:order-none">
+                  <AutoNarratorFeed
+                    messages={snapshot.narrator_messages}
+                    enabled={catalog?.feature_flags?.narrator !== false}
+                    snapshotUpdatedAtHms={snapshot.generated_at_hms}
+                  />
                 </div>
               </div>
 
@@ -360,7 +368,7 @@ export function App() {
                   a) Mapa de Apuração ao Vivo / Variação
                   b) Linha do Tempo da Apuração & Replay 2022 */}
               <div className="contents lg:col-span-5 lg:flex lg:flex-col lg:gap-5">
-                <div className="order-2 lg:order-none">
+                <div className="order-3 lg:order-none">
                   <SwingMapSection
                     snapshot={snapshot}
                     stage={stage}
@@ -391,19 +399,11 @@ export function App() {
                 </div>
               </div>
 
-              {/* COLUNA DIREITA (lg:col-span-3 — Onde Falta Contar e Lex com espaçamento nítido):
-                  a) Onde Ainda Falta Contar
-                  b) Lex */}
+              {/* COLUNA DIREITA (lg:col-span-3 — Onde Falta Contar em destaque isolado):
+                  a) Onde Ainda Falta Contar */}
               <div className="contents lg:col-span-3 lg:flex lg:flex-col lg:gap-5">
-                <div className="order-3 lg:order-none">
-                  <WhereVotesRemain snapshot={snapshot} />
-                </div>
                 <div className="order-4 lg:order-none">
-                  <AutoNarratorFeed
-                    messages={snapshot.narrator_messages}
-                    enabled={catalog?.feature_flags?.narrator !== false}
-                    snapshotUpdatedAtHms={snapshot.generated_at_hms}
-                  />
+                  <WhereVotesRemain snapshot={snapshot} />
                 </div>
               </div>
             </div>

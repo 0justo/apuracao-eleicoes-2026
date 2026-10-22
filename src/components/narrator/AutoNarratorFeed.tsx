@@ -151,10 +151,10 @@ export function AutoNarratorFeed({
     <section
       aria-label="Lex News — Pílulas analíticas determinísticas da apuração"
       data-testid="auto-narrator-feed"
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
+      className="flex flex-col h-[380px] sm:h-[400px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
     >
       {/* 1. Cabeçalho Limpo: Título + Ícone ⓘ com Tooltip + Pulso */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-950">
             <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
@@ -209,7 +209,7 @@ export function AutoNarratorFeed({
 
       {/* 2. Filtro Rápido com Ícones Vetoriais Profissionais */}
       <div
-        className="mt-3 flex flex-wrap items-center gap-1.5"
+        className="shrink-0 mt-3 flex flex-wrap items-center gap-1.5"
         role="tablist"
         aria-label="Filtrar pílulas analíticas do Lex News"
       >
@@ -250,9 +250,9 @@ export function AutoNarratorFeed({
         })}
       </div>
 
-      {/* 3. Feed em Formato Fast Ticker (Máx. 2 Linhas por Item, 100% Vetorial) */}
+      {/* 3. Feed em Formato Fast Ticker com rolagem interna e scrollbar fina */}
       <ol
-        className="mt-3 space-y-2 max-h-[560px] lg:max-h-[calc(100vh-14rem)] overflow-y-auto pr-0.5"
+        className="mt-3 flex-1 min-h-0 space-y-2 overflow-y-auto pr-1 scrollbar-thin [scrollbar-width:thin]"
         aria-live="polite"
       >
         {filteredMessages.map((msg, idx) => {
