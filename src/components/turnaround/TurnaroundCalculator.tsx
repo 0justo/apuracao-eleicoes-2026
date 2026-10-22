@@ -141,18 +141,29 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
 
       {/* 2. Destaque Principal com Linguagem Clara e Frase Direta */}
       <div className="mt-3.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            {turnaround.trailing_candidate_name ? (
-              <p className="text-sm font-medium leading-relaxed text-slate-700 sm:text-base dark:text-slate-200">
-                Para virar,{' '}
-                <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-black shadow-xs ${accentBadgeClass}`}>
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+            Cenário para a virada
+          </span>
+          <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider shrink-0 ${zoneInfo.badge}`}>
+            {zoneInfo.label}
+          </span>
+        </div>
+
+        <div>
+          {turnaround.trailing_candidate_name ? (
+            <div className="text-sm font-medium text-slate-700 sm:text-base dark:text-slate-200">
+              <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
+                <span>Para virar,</span>
+                <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-black shadow-xs shrink-0 ${accentBadgeClass}`}>
                   {turnaround.trailing_candidate_name}
-                </span>{' '}
-                precisa conquistar{' '}
+                </span>
+                <span>precisa conquistar</span>
+              </div>
+              <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
                 <strong
                   data-testid="turnaround-needed-pct"
-                  className="inline-block text-2xl font-black tracking-tight text-slate-900 sm:text-3xl dark:text-white"
+                  className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl dark:text-white"
                 >
                   {sVal === null
                     ? '—'
@@ -161,30 +172,26 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
                       : sVal <= 0
                         ? '≤ 0%'
                         : `${formatNumberComma(sVal)}%`}
-                </strong>{' '}
-                dos votos que ainda faltam.
-              </p>
-            ) : (
-              <p className="text-sm font-medium text-slate-700 sm:text-base dark:text-slate-200">
-                <span data-testid="turnaround-needed-pct" className="font-mono text-xl font-black text-slate-900 dark:text-white">
-                  {sVal === null ? '—' : `${formatNumberComma(sVal)}%`}
-                </span>{' '}
-                {turnaround.leading_candidate_name ? (
-                  <>
-                    Vantagem consolidada de <strong>{turnaround.leading_candidate_name}</strong> ({formatInt(turnaround.vote_difference)} votos à frente).
-                  </>
-                ) : (
-                  'Apuração concluída ou aguardando dados oficiais.'
-                )}
-              </p>
-            )}
-          </div>
-
-          <div className="shrink-0">
-            <span className={`inline-block rounded-full px-2.5 py-1 text-xs font-bold uppercase tracking-wider ${zoneInfo.badge}`}>
-              {zoneInfo.label}
-            </span>
-          </div>
+                </strong>
+                <span className="text-sm font-medium text-slate-600 sm:text-base dark:text-slate-300">
+                  dos votos que ainda faltam.
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="text-sm font-medium text-slate-700 sm:text-base dark:text-slate-200">
+              <span data-testid="turnaround-needed-pct" className="font-mono text-xl font-black text-slate-900 dark:text-white">
+                {sVal === null ? '—' : `${formatNumberComma(sVal)}%`}
+              </span>{' '}
+              {turnaround.leading_candidate_name ? (
+                <>
+                  Vantagem consolidada de <strong>{turnaround.leading_candidate_name}</strong> ({formatInt(turnaround.vote_difference)} votos à frente).
+                </>
+              ) : (
+                'Apuração concluída ou aguardando dados oficiais.'
+              )}
+            </div>
+          )}
         </div>
 
         <p data-testid="turnaround-neutral-message" className="sr-only">
@@ -258,22 +265,22 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
       {/* 4. Três Cartões com Destaques Visuais Distintos (Líder, Válidos Restantes, Meta da Virada) */}
       <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-3">
         {/* 1. Diferença atual (Destaque na cor do Líder) */}
-        <div className={`rounded-xl border p-3 shadow-xs transition ${leaderTheme.borderClass} ${leaderTheme.cardBgClass}`}>
-          <span className={`block text-xs font-semibold ${leaderTheme.textAccentClass}`}>
+        <div className={`rounded-xl border p-3 shadow-xs transition overflow-hidden ${leaderTheme.borderClass} ${leaderTheme.cardBgClass}`}>
+          <span className={`block text-xs font-medium ${leaderTheme.textAccentClass}`}>
             Diferença atual
           </span>
-          <div className="mt-1 flex items-baseline gap-1.5">
+          <div className="mt-1">
             <strong
               data-testid="turnaround-var-v"
-              className={`text-lg font-black ${leaderTheme.textAccentClass}`}
+              className={`block text-xl font-bold leading-tight ${leaderTheme.textAccentClass}`}
             >
               {formatCompactNumber(turnaround.vote_difference)}
             </strong>
-            <span className="font-mono text-xs opacity-80">
-              ({formatInt(turnaround.vote_difference)} votos)
+            <span className="block text-[11px] opacity-75 truncate font-mono">
+              {formatInt(turnaround.vote_difference)} votos
             </span>
           </div>
-          <p className="mt-1 text-[11px] opacity-85">
+          <p className="mt-1.5 text-[11px] leading-snug opacity-85">
             {turnaround.leading_candidate_name ?? 'Líder'} à frente por{' '}
             <strong className="font-bold">
               {formatNumberComma(turnaround.margin_pp)} p.p.
@@ -282,47 +289,47 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
         </div>
 
         {/* 2. Votos válidos restantes (Destaque em Âmbar/Dourado) */}
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.05] p-3 shadow-xs transition dark:border-amber-500/25 dark:bg-amber-500/[0.05]">
-          <span className="block text-xs font-semibold text-amber-700 dark:text-amber-400">
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.05] p-3 shadow-xs transition overflow-hidden dark:border-amber-500/25 dark:bg-amber-500/[0.05]">
+          <span className="block text-xs font-medium text-amber-700 dark:text-amber-400">
             Votos válidos restantes
           </span>
-          <div className="mt-1 flex items-baseline gap-1.5">
+          <div className="mt-1">
             <strong
               data-testid="turnaround-var-r"
-              className="text-lg font-black text-amber-700 dark:text-amber-300"
+              className="block text-xl font-bold leading-tight text-amber-700 dark:text-amber-300"
             >
               {formatCompactNumber(turnaround.estimated_remaining_valid_votes_r)}
             </strong>
-            <span className="font-mono text-xs text-amber-700/70 dark:text-amber-400/70">
-              ({formatInt(turnaround.estimated_remaining_valid_votes_r)} est.)
+            <span className="block text-[11px] opacity-75 truncate font-mono text-amber-700 dark:text-amber-400">
+              {formatInt(turnaround.estimated_remaining_valid_votes_r)} est.
             </span>
           </div>
-          <p className="mt-1 text-[11px] text-amber-700/80 dark:text-amber-400/80">
+          <p className="mt-1.5 text-[11px] leading-snug text-amber-700/80 dark:text-amber-400/80">
             Estimativa de urnas pendentes
           </p>
         </div>
 
         {/* 3. Meta para a virada (Destaque na cor do Candidato que busca a virada) */}
-        <div className={`rounded-xl border p-3 shadow-xs transition ${trailingTheme.borderClass} ${trailingTheme.cardBgClass}`}>
-          <span className={`block text-xs font-semibold ${trailingTheme.textAccentClass}`}>
+        <div className={`rounded-xl border p-3 shadow-xs transition overflow-hidden ${trailingTheme.borderClass} ${trailingTheme.cardBgClass}`}>
+          <span className={`block text-xs font-medium ${trailingTheme.textAccentClass}`}>
             Meta para a virada
           </span>
-          <div className="mt-1 flex items-baseline gap-1.5">
+          <div className="mt-1">
             <strong
               data-testid="turnaround-var-a"
-              className={`text-lg font-black ${trailingTheme.textAccentClass}`}
+              className={`block text-xl font-bold leading-tight ${trailingTheme.textAccentClass}`}
             >
               {sVal !== null && sVal > 100
                 ? 'Irreversível'
                 : formatCompactNumber(turnaround.needed_votes_absolute)}
             </strong>
-            <span className="font-mono text-xs opacity-80">
+            <span className="block text-[11px] opacity-75 truncate font-mono">
               {sVal !== null && sVal > 100
-                ? '(> 100% dos restantes)'
-                : `(${formatInt(turnaround.needed_votes_absolute)} votos)`}
+                ? '> 100% dos restantes'
+                : `${formatInt(turnaround.needed_votes_absolute)} votos`}
             </span>
           </div>
-          <p className="mt-1 text-[11px] opacity-85">
+          <p className="mt-1.5 text-[11px] leading-snug opacity-85">
             {turnaround.trailing_candidate_name ?? '2º colocado'} precisa somar
           </p>
         </div>

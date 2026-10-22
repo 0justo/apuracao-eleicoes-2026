@@ -116,7 +116,7 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
     <section
       aria-label="Onde ainda falta contar"
       data-testid="where-votes-remain"
-      className="flex flex-col h-[380px] sm:h-[420px] max-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
+      className="flex flex-col h-[460px] sm:h-[490px] max-h-[490px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
     >
       {/* 1. Cabeçalho Limpo: Título + Ícone ⓘ com Tooltip Dinâmico + Toggle Feature Flag */}
       <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
@@ -306,7 +306,7 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
 
       {/* 4. Lista Vertical de Cartões Visuais com Scroll Interno */}
       <div
-        className="mt-3 flex-1 min-h-0 space-y-2 overflow-y-auto pr-1 scrollbar-thin [scrollbar-width:thin]"
+        className="mt-2.5 flex-1 min-h-0 space-y-1.5 overflow-y-auto pr-1 scrollbar-thin [scrollbar-width:thin]"
         data-testid="pending-localities-table"
       >
         {selectedPresUf && (
@@ -335,7 +335,7 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
           return (
             <div
               key={`${loc.uf}-${loc.code_tse}`}
-              className="flex flex-col gap-2 rounded-xl border border-slate-200/90 bg-slate-50/70 p-2.5 transition hover:bg-slate-50 dark:border-[#1F1F24] dark:bg-[#0F0F12]/80 dark:hover:bg-[#0F0F12]"
+              className="flex flex-col gap-1.5 rounded-xl border border-slate-200/90 bg-slate-50/70 p-2 transition hover:bg-slate-50 dark:border-[#1F1F24] dark:bg-[#0F0F12]/80 dark:hover:bg-[#0F0F12]"
             >
               {/* Linha Superior: Bandeira + Nome com truncate + Botão Cidades + Badge de Liderança */}
               <div className="flex items-center justify-between gap-2 min-w-0">

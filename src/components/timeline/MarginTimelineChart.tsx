@@ -183,164 +183,170 @@ export function MarginTimelineChart({
       data-testid="margin-timeline-section"
       className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
     >
-      {/* Cabeçalho e alternância Ao Vivo (2026) vs. Replay Histórico 2022 */}
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-3.5 lg:flex-row lg:items-center lg:justify-between dark:border-[#1F1F24]">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
-              <LineChart className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              <span
-                className="absolute -top-1 -right-1 flex h-2.5 w-2.5"
-                title="Indicador da Linha do Tempo"
-              >
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              </span>
-            </div>
-            <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white">
-              Linha do Tempo da Apuração
-            </h2>
+      {/* 1. Cabeçalho Limpo: Ícone Azul + Título Lado a Lado na Primeira Linha Inteira */}
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-[#1F1F24]">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+            <LineChart className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <span
+              className="absolute -top-1 -right-1 flex h-2.5 w-2.5"
+              title="Indicador da Linha do Tempo"
+            >
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            </span>
+          </div>
 
-            {/* Ícone ⓘ discreto com Tooltip dinâmico */}
-            <div className="group relative inline-flex items-center">
-              <button
-                type="button"
-                className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none dark:text-slate-500 dark:hover:text-slate-300"
-                aria-label="Informações sobre a linha do tempo"
-              >
-                <Info className="h-4 w-4" aria-hidden="true" />
-              </button>
-              <div className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-72 rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs leading-relaxed text-slate-200 shadow-2xl group-hover:block group-focus-within:block">
-                <p className="font-medium text-white">Trajetória e Cruzamento</p>
-                <p className="mt-1 text-slate-300">
-                  Evolução temporal da diferença em pontos percentuais ({cand1.ballot_name} − {cand2.ballot_name}) correlacionada com a porcentagem de urnas apuradas e o horário oficial de divulgação do TSE.
-                </p>
-              </div>
-            </div>
+          <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white whitespace-nowrap">
+            Linha do Tempo da Apuração
+          </h2>
 
-            {isReplayMode ? (
-              <span
-                data-testid="timeline-replay-badge"
-                className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-2 py-0.5 text-xs font-bold text-slate-950"
-              >
-                <History className="h-3.5 w-3.5" aria-hidden="true" />
-                REPLAY HISTÓRICO 2022 (30/10/2022)
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                <Radio className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
-                Apuração 2026 ({snapshot.cargo_name} — {snapshot.uf})
-              </span>
-            )}
+          {/* Ícone ⓘ discreto com Tooltip dinâmico */}
+          <div className="group relative inline-flex items-center shrink-0">
+            <button
+              type="button"
+              className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none dark:text-slate-500 dark:hover:text-slate-300"
+              aria-label="Informações sobre a linha do tempo"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <div className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-72 rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs leading-relaxed text-slate-200 shadow-2xl group-hover:block group-focus-within:block">
+              <p className="font-medium text-white">Trajetória e Cruzamento</p>
+              <p className="mt-1 text-slate-300">
+                Evolução temporal da diferença em pontos percentuais ({cand1.ballot_name} − {cand2.ballot_name}) correlacionada com a porcentagem de urnas apuradas e o horário oficial de divulgação do TSE.
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Botões de modo (Ao vivo 2026 vs Replay 2022) e eixo */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div
-            role="group"
-            aria-label="Alternar entre Apuração 2026 e Replay Histórico 2022"
-            className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
-          >
-            <button
-              type="button"
-              data-testid="timeline-mode-live-btn"
-              aria-pressed={!isReplayMode}
-              onClick={() => {
-                if (isReplayMode) onStopReplay()
-              }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                !isReplayMode
-                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
-              }`}
+        {/* Badge Sutil de Modo */}
+        <div className="shrink-0">
+          {isReplayMode ? (
+            <span
+              data-testid="timeline-replay-badge"
+              className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-slate-950 whitespace-nowrap"
             >
-              Ao vivo (2026)
-            </button>
-            <button
-              type="button"
-              data-testid="timeline-mode-replay-btn"
-              aria-pressed={isReplayMode}
-              onClick={() => {
-                if (!isReplayMode) onStartReplay()
-              }}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
-                isReplayMode
-                  ? 'bg-amber-500 text-slate-950 shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
-              }`}
-            >
-              <History className="h-3.5 w-3.5" aria-hidden="true" />
-              Replay 2022
-            </button>
-          </div>
+              <History className="h-3 w-3" aria-hidden="true" />
+              REPLAY 2022
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-[#0F0F12] dark:border dark:border-[#1F1F24] dark:text-slate-300 whitespace-nowrap">
+              <Radio className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+              Ao Vivo
+            </span>
+          )}
+        </div>
+      </div>
 
-          <div
-            role="group"
-            aria-label="Eixo horizontal da linha do tempo"
-            className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+      {/* 2. Barra de Controles Segmentados Compactos (Abaixo do Título em Linha Organizada) */}
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 pb-1">
+        {/* Alternador de Séries: % Candidatos vs Margem */}
+        <div
+          role="group"
+          aria-label="Série exibida no gráfico"
+          className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs whitespace-nowrap dark:border-white/[0.07] dark:bg-white/[0.04]"
+        >
+          <button
+            type="button"
+            data-testid="timeline-series-both-btn"
+            aria-pressed={chartType === 'both_candidates'}
+            onClick={() => setChartType('both_candidates')}
+            className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+              chartType === 'both_candidates'
+                ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            }`}
           >
-            <button
-              type="button"
-              data-testid="timeline-xaxis-pct-btn"
-              aria-pressed={xAxisMode === 'pct'}
-              onClick={() => setXAxisMode('pct')}
-              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition ${
-                xAxisMode === 'pct'
-                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
-                  : 'text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              <Percent className="h-3 w-3" aria-hidden="true" />% Urnas
-            </button>
-            <button
-              type="button"
-              data-testid="timeline-xaxis-time-btn"
-              aria-pressed={xAxisMode === 'time'}
-              onClick={() => setXAxisMode('time')}
-              className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition ${
-                xAxisMode === 'time'
-                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
-                  : 'text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              <Clock className="h-3 w-3" aria-hidden="true" />
-              Horário
-            </button>
-          </div>
+            % Candidatos
+          </button>
+          <button
+            type="button"
+            data-testid="timeline-series-margin-btn"
+            aria-pressed={chartType === 'margin'}
+            onClick={() => setChartType('margin')}
+            className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+              chartType === 'margin'
+                ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            }`}
+          >
+            Margem
+          </button>
+        </div>
 
-          <div
-            role="group"
-            aria-label="Série exibida no gráfico"
-            className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-slate-700 dark:bg-slate-800"
+        {/* Eixo X: % Urnas vs Horário */}
+        <div
+          role="group"
+          aria-label="Eixo horizontal da linha do tempo"
+          className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs whitespace-nowrap dark:border-white/[0.07] dark:bg-white/[0.04]"
+        >
+          <button
+            type="button"
+            data-testid="timeline-xaxis-pct-btn"
+            aria-pressed={xAxisMode === 'pct'}
+            onClick={() => setXAxisMode('pct')}
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+              xAxisMode === 'pct'
+                ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            }`}
           >
-            <button
-              type="button"
-              data-testid="timeline-series-margin-btn"
-              aria-pressed={chartType === 'margin'}
-              onClick={() => setChartType('margin')}
-              className={`rounded-lg px-2 py-1 text-xs font-semibold transition ${
-                chartType === 'margin'
-                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
-                  : 'text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              Margem (A − B)
-            </button>
-            <button
-              type="button"
-              data-testid="timeline-series-both-btn"
-              aria-pressed={chartType === 'both_candidates'}
-              onClick={() => setChartType('both_candidates')}
-              className={`rounded-lg px-2 py-1 text-xs font-semibold transition ${
-                chartType === 'both_candidates'
-                  ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
-                  : 'text-slate-600 dark:text-slate-300'
-              }`}
-            >
-              % Candidatos
-            </button>
-          </div>
+            <Percent className="h-2.5 w-2.5" aria-hidden="true" />
+            % Urnas
+          </button>
+          <button
+            type="button"
+            data-testid="timeline-xaxis-time-btn"
+            aria-pressed={xAxisMode === 'time'}
+            onClick={() => setXAxisMode('time')}
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+              xAxisMode === 'time'
+                ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            }`}
+          >
+            <Clock className="h-2.5 w-2.5" aria-hidden="true" />
+            Horário
+          </button>
+        </div>
+
+        {/* Alternador 2026 vs Replay 22 */}
+        <div
+          role="group"
+          aria-label="Alternar entre Apuração 2026 e Replay Histórico 2022"
+          className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs whitespace-nowrap dark:border-white/[0.07] dark:bg-white/[0.04]"
+        >
+          <button
+            type="button"
+            data-testid="timeline-mode-live-btn"
+            aria-pressed={!isReplayMode}
+            onClick={() => {
+              if (isReplayMode) onStopReplay()
+            }}
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+              !isReplayMode
+                ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            }`}
+          >
+            2026
+          </button>
+          <button
+            type="button"
+            data-testid="timeline-mode-replay-btn"
+            aria-pressed={isReplayMode}
+            onClick={() => {
+              if (!isReplayMode) onStartReplay()
+            }}
+            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+              isReplayMode
+                ? 'bg-amber-500 text-slate-950 shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            }`}
+          >
+            <History className="h-2.5 w-2.5" aria-hidden="true" />
+            Replay 22
+          </button>
         </div>
       </div>
 

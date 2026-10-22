@@ -479,137 +479,145 @@ export function SwingMapSection({
       data-testid="swing-map-section"
       className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
     >
-      {/* Cabeçalho da seção e controles de visão */}
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-3.5 lg:flex-row lg:items-center lg:justify-between dark:border-[#1F1F24]">
-        <div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
-              <MapIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              <span
-                className="absolute -top-1 -right-1 flex h-2.5 w-2.5"
-                title="Indicador do Mapa ao Vivo"
-              >
-                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              </span>
-            </div>
-            <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white">
-              {metricMode === 'live_2t'
-                ? 'Mapa de Apuração ao Vivo — 2º Turno'
-                : 'Mapa de Variação vs. 1º Turno (p.p.)'}
-            </h2>
+      {/* 1. Cabeçalho Limpo: Ícone Esmeralda + Título Lado a Lado na Linha Inteira */}
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-[#1F1F24]">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+            <MapIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <span
+              className="absolute -top-1 -right-1 flex h-2.5 w-2.5"
+              title="Indicador do Mapa ao Vivo"
+            >
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            </span>
+          </div>
 
-            {/* Ícone ⓘ discreto com Tooltip dinâmico */}
-            <div className="group relative inline-flex items-center">
-              <button
-                type="button"
-                className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none dark:text-slate-500 dark:hover:text-slate-300"
-                aria-label="Informações sobre o mapa"
-              >
-                <Info className="h-4 w-4" aria-hidden="true" />
-              </button>
-              <div className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-72 rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs leading-relaxed text-slate-200 shadow-2xl group-hover:block group-focus-within:block">
-                <p className="font-medium text-white">Cartografia Oficial IBGE</p>
-                <p className="mt-1 text-slate-300">
-                  {metricMode === 'live_2t'
-                    ? 'Colorida pela liderança atual no 2º turno em cada localidade. Locais com menos de 30% apurado exibem hachura visual de baixa confiabilidade amostral.'
-                    : 'Diferença em pontos percentuais entre o 2º turno atual e o 1º turno de 2026. Locais com menos de 30% apurado exibem hachura.'}
-                </p>
-              </div>
-            </div>
+          <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white whitespace-nowrap">
+            {metricMode === 'live_2t'
+              ? 'Mapa de Apuração ao Vivo — 2º Turno'
+              : 'Mapa de Variação vs. 1º Turno (p.p.)'}
+          </h2>
 
-            {zoomedUf && (
-              <span className="rounded-md bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white dark:bg-white dark:text-slate-900">
-                Municípios de {zoomedUf} ({activeLocalities.length})
-              </span>
-            )}
+          {/* Ícone ⓘ discreto com Tooltip dinâmico */}
+          <div className="group relative inline-flex items-center shrink-0">
+            <button
+              type="button"
+              className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none dark:text-slate-500 dark:hover:text-slate-300"
+              aria-label="Informações sobre o mapa"
+            >
+              <Info className="h-4 w-4" aria-hidden="true" />
+            </button>
+            <div className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-72 rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs leading-relaxed text-slate-200 shadow-2xl group-hover:block group-focus-within:block">
+              <p className="font-medium text-white">Cartografia Oficial IBGE</p>
+              <p className="mt-1 text-slate-300">
+                {metricMode === 'live_2t'
+                  ? 'Colorida pela liderança atual no 2º turno em cada localidade. Locais com menos de 30% apurado exibem hachura visual de baixa confiabilidade amostral.'
+                  : 'Diferença em pontos percentuais entre o 2º turno atual e o 1º turno de 2026. Locais com menos de 30% apurado exibem hachura.'}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* Seletor Principal de Modo no Topo do Mapa: Ao Vivo (2º Turno) vs Variação vs. 1º Turno */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div
-            role="group"
-            aria-label="Modo de métrica do mapa"
-            className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+        {zoomedUf && (
+          <span className="shrink-0 rounded-md bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-white dark:text-slate-900">
+            {zoomedUf} ({activeLocalities.length})
+          </span>
+        )}
+      </div>
+
+      {/* 2. Barra de Controles Segmentados Compactos (Abaixo do Título em Linha Limpa) */}
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 pb-1">
+        {/* Seletor de Métrica: [ Ao Vivo 2ºT | vs. 1º Turno ] */}
+        <div
+          role="group"
+          aria-label="Modo de métrica do mapa"
+          className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs whitespace-nowrap dark:border-white/[0.07] dark:bg-white/[0.04]"
+        >
+          <button
+            type="button"
+            data-testid="map-metric-live-btn"
+            title="Ao Vivo (2º Turno)"
+            aria-label="Ao Vivo (2º Turno)"
+            aria-pressed={metricMode === 'live_2t'}
+            onClick={() => setMetricMode('live_2t')}
+            className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition ${
+              metricMode === 'live_2t'
+                ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            }`}
           >
-            <button
-              type="button"
-              data-testid="map-metric-live-btn"
-              aria-pressed={metricMode === 'live_2t'}
-              onClick={() => setMetricMode('live_2t')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
-                metricMode === 'live_2t'
-                  ? 'bg-slate-900 text-white shadow-2xs dark:bg-white dark:text-slate-950'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
-              }`}
-            >
-              <Activity className="h-3.5 w-3.5" aria-hidden="true" />
-              Ao Vivo (2º Turno)
-            </button>
-            <button
-              type="button"
-              data-testid="map-metric-swing-btn"
-              aria-pressed={metricMode === 'swing_1t'}
-              onClick={() => setMetricMode('swing_1t')}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-bold transition ${
-                metricMode === 'swing_1t'
-                  ? 'bg-slate-900 text-white shadow-2xs dark:bg-white dark:text-slate-950'
-                  : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
-              }`}
-            >
-              <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
-              Variação vs. 1º Turno
-            </button>
-          </div>
+            <Activity className="h-3 w-3" aria-hidden="true" />
+            Ao Vivo 2ºT
+          </button>
+          <button
+            type="button"
+            data-testid="map-metric-swing-btn"
+            title="Variação em relação ao 1º Turno"
+            aria-label="Variação em relação ao 1º Turno"
+            aria-pressed={metricMode === 'swing_1t'}
+            onClick={() => setMetricMode('swing_1t')}
+            className={`inline-flex items-center gap-1 rounded-md px-2.5 py-0.5 text-[11px] font-semibold transition ${
+              metricMode === 'swing_1t'
+                ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
+                : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+            }`}
+          >
+            <ArrowLeftRight className="h-3 w-3" aria-hidden="true" />
+            vs. 1º Turno
+          </button>
+        </div>
 
-          {isPresidential && zoomedUf && (
-            <button
-              type="button"
-              data-testid="back-to-brazil-btn"
-              onClick={handleBackToBrazil}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-2xs transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
-            >
-              <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
-              Voltar ao Brasil
-            </button>
-          )}
-
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Seletor de Modo: [ Mapa | Grade ] */}
           {isPresidential && !zoomedUf && (
             <div
               role="group"
               aria-label="Modo de visualização do mapa nacional"
-              className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-0.5 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+              className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs whitespace-nowrap dark:border-white/[0.07] dark:bg-white/[0.04]"
             >
               <button
                 type="button"
                 data-testid="map-mode-geo-btn"
                 aria-pressed={mapMode === 'geo'}
                 onClick={() => setMapMode('geo')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
                   mapMode === 'geo'
-                    ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                    ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
-                <MapIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                Mapa IBGE
+                <MapIcon className="h-2.5 w-2.5" aria-hidden="true" />
+                Mapa
               </button>
               <button
                 type="button"
                 data-testid="map-mode-tile-btn"
                 aria-pressed={mapMode === 'tile'}
                 onClick={() => setMapMode('tile')}
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition ${
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
                   mapMode === 'tile'
-                    ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-900 dark:text-white'
-                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white'
+                    ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
+                    : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
                 }`}
               >
-                <Grid className="h-3.5 w-3.5" aria-hidden="true" />
-                Grade (UF)
+                <Grid className="h-2.5 w-2.5" aria-hidden="true" />
+                Grade
               </button>
             </div>
+          )}
+
+          {/* Botão Voltar ao Brasil no zoom */}
+          {isPresidential && zoomedUf && (
+            <button
+              type="button"
+              data-testid="back-to-brazil-btn"
+              onClick={handleBackToBrazil}
+              className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-2 py-0.5 text-[11px] font-semibold text-white shadow-xs transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+            >
+              <ArrowLeft className="h-3 w-3" aria-hidden="true" />
+              Brasil
+            </button>
           )}
 
           {/* Alternador de motor SVG / Canvas no zoom municipal */}
@@ -625,11 +633,11 @@ export function SwingMapSection({
                     : 'canvas',
                 )
               }
-              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-700 hover:bg-slate-100 dark:border-white/[0.07] dark:bg-white/[0.04] dark:text-slate-300"
               title="Alternar renderizador gráfico entre SVG e HTML5 Canvas"
             >
-              <Layers className="h-3.5 w-3.5" aria-hidden="true" />
-              Motor: {effectiveRenderMode.toUpperCase()}
+              <Layers className="h-2.5 w-2.5" aria-hidden="true" />
+              {effectiveRenderMode.toUpperCase()}
             </button>
           )}
         </div>
