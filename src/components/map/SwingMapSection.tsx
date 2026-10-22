@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { SimulationStage } from '../../hooks/useElectionSnapshot'
 import type { DisputeSnapshot, LocalityDataItem } from '../../types/election'
+import { StateFlag } from '../common/StateFlag'
 import { getDisputePairThemes } from '../../utils/candidatePalette'
 import { formatPct, formatSignedPP } from '../../utils/formatters'
 import {
@@ -104,6 +105,16 @@ export function SwingMapSection({
   })
   const [focusedCode, setFocusedCode] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>('')
+
+  // Debounce de 300ms para consultas de autocomplete sem travamento de digitação
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
   const prevDisputeIdRef = useRef<string>(snapshot.dispute_id)
 
   // Sincroniza APENAS quando a disputa (cargo/UF) muda — NUNCA reseta durante o polling!
@@ -277,10 +288,10 @@ export function SwingMapSection({
     snapshot.highlighted_locality_code,
   ])
 
-  // Resultados combinados de busca: localidades ativas + municípios do índice nacional (quando em visão Brasil)
+  // Resultados combinados de busca com debounce de 300ms: localidades ativas + municípios do índice nacional
   const searchResults = useMemo(() => {
-    const q = normalizeSearchText(searchQuery)
-    if (!q) return []
+    const q = normalizeSearchText(debouncedSearchQuery)
+    if (!q || q.length < 2) return []
 
     const localMatches = activeLocalities
       .filter((l) => {
@@ -333,57 +344,17 @@ export function SwingMapSection({
     }
 
     return localMatches
-  }, [activeLocalities, activeScope, isPresidential, munIndex, searchQuery])
+  }, [activeLocalities, activeScope, isPresidential, munIndex, debouncedSearchQuery])
 
-  // Auto-zoom imediato na localidade correspondente ao digitar no campo de busca
-  const handleSearchChange = useCallback(
-    (rawVal: string) => {
-      setSearchQuery(rawVal)
-      const q = normalizeSearchText(rawVal)
-      if (!q) {
-        setFocusedCode(null)
-        return
-      }
-      if (q.length < 2) return
+  // Atualização do campo de busca sem saltos automáticos prematuros durante a digitação
+  const handleSearchChange = useCallback((rawVal: string) => {
+    setSearchQuery(rawVal)
+    if (!rawVal.trim()) {
+      setFocusedCode(null)
+    }
+  }, [])
 
-      // Procura correspondência direta nas localidades ativas (UFs ou municípios do estado aberto)
-      const scored = activeLocalities
-        .map((l) => {
-          const n = normalizeSearchText(l.name)
-          const u = normalizeSearchText(l.uf)
-          let rank = 99
-          if (u === q || n === q) rank = 0
-          else if (n.startsWith(q)) rank = 1
-          else if (n.includes(q)) rank = 2
-          return { loc: l, rank }
-        })
-        .filter((item) => item.rank < 99)
-        .sort((a, b) => a.rank - b.rank)
-
-      if (scored.length > 0) {
-        const best = scored[0].loc
-        setSelectedCode(best.code_tse)
-        setFocusedCode(activeScope === 'uf' ? best.uf : best.code_tse)
-        if (mapMode === 'tile') {
-          setMapMode('geo')
-        }
-        return
-      }
-
-      // Se estiver na visão nacional de Presidente e digitou o nome exato/prefixo claro de um município brasileiro,
-      // abre automaticamente o estado correspondente e dá zoom no município!
-      if (activeScope === 'uf' && isPresidential && q.length >= 4 && munIndex.length > 0) {
-        const exactMun = munIndex.find((m) => normalizeSearchText(m.n) === q)
-        if (exactMun) {
-          pendingFocusCodeRef.current = exactMun.c
-          setMapMode('geo')
-          setZoomedUf(exactMun.u.toUpperCase())
-        }
-      }
-    },
-    [activeLocalities, activeScope, isPresidential, mapMode, munIndex],
-  )
-
+  // Navegação disparada exclusivamente ao clicar em uma sugestão ou pressionar Enter
   const handleSelectSearchResult = useCallback(
     (item: {
       code_tse: string
@@ -400,6 +371,7 @@ export function SwingMapSection({
         setFocusedCode(item.scope === 'uf' ? item.uf : item.code_tse)
       }
       setSearchQuery(item.name)
+      setDebouncedSearchQuery(item.name)
     },
     [isPresidential, zoomedUf],
   )
@@ -410,6 +382,7 @@ export function SwingMapSection({
     setZoomedUf(ufUpper)
     setFocusedCode(null)
     setSearchQuery('')
+    setDebouncedSearchQuery('')
   }, [])
 
   const handleBackToBrazil = useCallback(() => {
@@ -422,6 +395,7 @@ export function SwingMapSection({
         null,
     )
     setSearchQuery('')
+    setDebouncedSearchQuery('')
   }, [snapshot.highlighted_locality_code, snapshot.localities])
 
   const highlightedLoc = useMemo(
@@ -827,6 +801,39 @@ export function SwingMapSection({
           </span>
         </div>
       </div>
+
+      {/* Barra de Breadcrumb e Retorno ao Brasil ao visualizar municípios de um estado */}
+      {isPresidential && zoomedUf && (
+        <div
+          data-testid="map-breadcrumb-bar"
+          className="mt-3 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-100/90 px-3 py-2 text-xs backdrop-blur-sm dark:border-[#1F1F24] dark:bg-[#121216]"
+        >
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBackToBrazil}
+              className="flex items-center gap-1 font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Brasil
+            </button>
+            <span className="text-slate-400">/</span>
+            <span className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-white">
+              <StateFlag uf={zoomedUf} className="h-3.5 w-5 rounded-xs object-cover" />
+              {zoomedUf} — Municípios ({activeLocalities.length})
+            </span>
+          </div>
+          <button
+            type="button"
+            data-testid="breadcrumb-back-to-brazil-btn"
+            onClick={handleBackToBrazil}
+            className="inline-flex items-center gap-1 rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-bold text-white shadow-xs transition hover:bg-slate-800 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Voltar ao Brasil
+          </button>
+        </div>
+      )}
 
       {/* Área do Mapa (Largura total no celular, sem sobreposição com o cartão fixo abaixo) */}
       <div className="mt-3">

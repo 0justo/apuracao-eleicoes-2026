@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import json
 from pathlib import Path
+import subprocess
 from typing import Any
 
 from backend.db import Database
@@ -64,6 +65,29 @@ def resolve_pair_keys(c1: dict[str, Any], c2: dict[str, Any]) -> tuple[str, str]
     return k1, k2
 
 
+def render_cadu_neutral_svg() -> str:
+    """Gera o avatar oficial vetorial neutro para CADU DE LULA (PT - 13), sem imagem de terceiros."""
+    return """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160" role="img" aria-label="Avatar oficial neutro de CADU DE LULA (PT - 13)">
+  <defs>
+    <clipPath id="clip-200002534001">
+      <rect width="160" height="160" rx="24" />
+    </clipPath>
+    <linearGradient id="bg-200002534001" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#991B1B" />
+      <stop offset="100%" stop-color="#DC2626" />
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#clip-200002534001)">
+    <rect width="160" height="160" fill="url(#bg-200002534001)" />
+    <circle cx="80" cy="54" r="26" fill="#F8FAFC" fill-opacity="0.95" />
+    <path d="M26 130 C26 90, 134 90, 134 130 Z" fill="#F8FAFC" fill-opacity="0.95" />
+    <rect x="0" y="126" width="160" height="34" fill="#7F1D1D" fill-opacity="0.92" />
+    <text x="80" y="143" text-anchor="middle" dominant-baseline="central" fill="#FFFFFF" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="800">PT • 13</text>
+  </g>
+</svg>
+"""
+
+
 def render_candidate_portrait_svg(
     sqcand: str,
     ballot_name: str,
@@ -73,6 +97,9 @@ def render_candidate_portrait_svg(
     jpg_bytes: bytes | None,
 ) -> str:
     """Gera SVG com a foto oficial real embutida em alta nitidez (ou fallback vetorial)."""
+    if sqcand == "200002534001":
+        return render_cadu_neutral_svg()
+
     bg_start, bg_end, accent, badge_bg = THEME_HEX.get(theme_key, THEME_HEX["blue"])
     short_party = (party_acronym or "")[:10]
 
@@ -102,6 +129,16 @@ def render_candidate_portrait_svg(
 """
 
 
+CANONICAL_SQCANDS: dict[tuple[str, str], str] = {
+    ("CELINA LEÃO", "11"): "70002552496",
+    ("LEANDRO GRASS", "13"): "70002553055",
+    ("PROFESSORA DORINHA", "44"): "270002544544",
+    ("VICENTINHO JÚNIOR", "45"): "270002544599",
+    ("CADU DE LULA", "13"): "200002534001",
+    ("ALLYSON", "44"): "200002535255",
+}
+
+
 def patch_snapshot_file(snap_path: Path) -> dict[str, dict[str, str]]:
     data = json.loads(snap_path.read_text(encoding="utf-8"))
     discovered: dict[str, dict[str, str]] = {}
@@ -120,6 +157,11 @@ def patch_snapshot_file(snap_path: Path) -> dict[str, dict[str, str]]:
         snap["validation_message"] = None
 
         for idx, c in enumerate(cands):
+            b_name = str(c.get("ballot_name", "")).strip().upper()
+            num = str(c.get("number", "")).strip()
+            if (b_name, num) in CANONICAL_SQCANDS:
+                c["sqcand"] = CANONICAL_SQCANDS[(b_name, num)]
+
             sqcand = str(c.get("sqcand", "")).strip()
             if not sqcand:
                 continue
@@ -147,6 +189,16 @@ def patch_snapshot_file(snap_path: Path) -> dict[str, dict[str, str]]:
         for frame in data["frames"]:
             if isinstance(frame, dict) and "candidates" in frame:
                 patch_single_snap(frame)
+    elif "items" in data and isinstance(data["items"], list):
+        for it in data["items"]:
+            if isinstance(it, dict) and "candidates" in it:
+                patch_single_snap(it)
+
+    snap_path.write_text(
+        json.dumps(data, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8",
+    )
+    return discovered
 
     snap_path.write_text(
         json.dumps(data, ensure_ascii=False, separators=(",", ":")),
@@ -234,7 +286,7 @@ def main() -> None:
     all_candidates: dict[str, dict[str, str]] = {}
 
     for json_file in SNAPSHOTS_DIR.rglob("*.json"):
-        if json_file.name in ("latest.json", "presidente.json"):
+        if json_file.name in ("latest.json", "presidente.json", "history.json"):
             found = patch_snapshot_file(json_file)
             all_candidates.update(found)
 
@@ -251,16 +303,24 @@ def main() -> None:
         if not jpg_path.exists() and cache_jpg.exists():
             jpg_path.write_bytes(cache_jpg.read_bytes())
 
-        jpg_bytes = jpg_path.read_bytes() if jpg_path.exists() else None
-        svg_content = render_candidate_portrait_svg(
-            sqcand=sqcand,
-            ballot_name=meta["ballot_name"],
-            party_acronym=meta["party_acronym"],
-            number=meta["number"],
-            theme_key=meta["theme_key"],
-            jpg_bytes=jpg_bytes,
-        )
-        (AVATARS_DIR / f"{sqcand}.svg").write_text(svg_content, encoding="utf-8")
+        if sqcand == "200002534001":
+            svg_content = render_cadu_neutral_svg()
+            (AVATARS_DIR / f"{sqcand}.svg").write_text(svg_content, encoding="utf-8")
+            subprocess.run(
+                ["convert", "-density", "150", "-quality", "92", str(AVATARS_DIR / f"{sqcand}.svg"), str(jpg_path)],
+                check=True,
+            )
+        else:
+            jpg_bytes = jpg_path.read_bytes() if jpg_path.exists() else None
+            svg_content = render_candidate_portrait_svg(
+                sqcand=sqcand,
+                ballot_name=meta["ballot_name"],
+                party_acronym=meta["party_acronym"],
+                number=meta["number"],
+                theme_key=meta["theme_key"],
+                jpg_bytes=jpg_bytes,
+            )
+            (AVATARS_DIR / f"{sqcand}.svg").write_text(svg_content, encoding="utf-8")
 
     build_national_municipality_search_index()
     sync_sqlite_database()

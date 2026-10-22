@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Minus, Plus, RotateCcw } from 'lucide-react'
 import type { LocalityDataItem } from '../../types/election'
-import { formatPct, formatSignedPP } from '../../utils/formatters'
+import { formatInt, formatPct, formatSignedPP } from '../../utils/formatters'
 import {
   type DecodedGeoFeature,
   getDivergentSwingFill,
@@ -61,15 +62,37 @@ export function GeoChoroplethMap({
   perspectiveSlot,
   isDark,
   renderMode,
-  cand1Hex,
-  cand2Hex,
+  cand1Hex = '#DC2626',
+  cand2Hex = '#1D4ED8',
   cand1Name = 'Cand. 1',
   cand2Name = 'Cand. 2',
   onSelectLocality,
   onZoomToUf,
   onResetFocus,
 }: GeoChoroplethMapProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+
+  // Estado interativo de Transformação (Zoom e Pan livre)
+  const [scale, setScale] = useState<number>(1)
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  // Estado do Tooltip flutuante em True Black
+  const [hoveredLoc, setHoveredLoc] = useState<LocalityDataItem | null>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
+
+  // Rastreamento de gestos táteis e arrasto livre (drag/pan)
+  const isDraggingRef = useRef<boolean>(false)
+  const dragStartRef = useRef<{ clientX: number; clientY: number; panX: number; panY: number }>({
+    clientX: 0,
+    clientY: 0,
+    panX: 0,
+    panY: 0,
+  })
+  const dragDistanceRef = useRef<number>(0)
+  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
+  const pinchStartDistRef = useRef<number>(0)
+  const pinchStartScaleRef = useRef<number>(1)
 
   const localityMap = useMemo(() => {
     const m = new Map<string, LocalityDataItem>()
@@ -126,17 +149,10 @@ export function GeoChoroplethMap({
     [metricMode, isDark, cand1Hex, cand2Hex],
   )
 
-  // Cálculo de caixa de zoom automático quando o usuário pesquisa uma UF ou município
-  const zoomViewport = useMemo(() => {
+  // Enquadramento automático quando focusedCode é definido via busca
+  useEffect(() => {
     if (!focusedCode) {
-      return {
-        vx: 0,
-        vy: 0,
-        vw: MAP_WIDTH,
-        vh: MAP_HEIGHT,
-        scale: 1,
-        isZoomed: false,
-      }
+      return
     }
     const norm = focusedCode.toUpperCase()
     const target = projected.find((feat) => {
@@ -149,32 +165,179 @@ export function GeoChoroplethMap({
         ibgeProp === norm
       )
     })
-    if (!target) {
-      return {
-        vx: 0,
-        vy: 0,
-        vw: MAP_WIDTH,
-        vh: MAP_HEIGHT,
-        scale: 1,
-        isZoomed: false,
-      }
-    }
+    if (!target) return
+
     const [x0, y0, x1, y1] = target.bboxPx
     const cx = (x0 + x1) / 2
     const cy = (y0 + y1) / 2
-    const aspect = MAP_WIDTH / MAP_HEIGHT
-    const minBoxW = scope === 'uf' ? 210 : 140
-    const rawW = Math.max((x1 - x0) * 2.8, minBoxW)
-    const rawH = Math.max((y1 - y0) * 2.8, minBoxW / aspect)
-    const vw = Math.min(MAP_WIDTH, Math.max(rawW, rawH * aspect))
-    const vh = vw / aspect
-    const vx = Math.max(0, Math.min(MAP_WIDTH - vw, cx - vw / 2))
-    const vy = Math.max(0, Math.min(MAP_HEIGHT - vh, cy - vh / 2))
-    const scale = MAP_WIDTH / vw
-    return { vx, vy, vw, vh, scale, isZoomed: scale > 1.08 }
+    const bw = Math.max(x1 - x0, 20)
+    const bh = Math.max(y1 - y0, 20)
+    const targetScale = Math.min(6, Math.max(1.8, Math.min(MAP_WIDTH / (bw * 3.2), MAP_HEIGHT / (bh * 3.2))))
+
+    setScale(targetScale)
+    setPan({
+      x: cx - MAP_WIDTH / 2,
+      y: cy - MAP_HEIGHT / 2,
+    })
   }, [focusedCode, projected, scope])
 
-  // Renderização em Canvas 2D (para malhas municipais densas ou quando selecionado)
+  // Reset de pan/zoom quando a malha de features ou o escopo muda
+  useEffect(() => {
+    setScale(1)
+    setPan({ x: 0, y: 0 })
+    setHoveredLoc(null)
+  }, [scope, features])
+
+  // Cálculo da ViewBox derivada de scale e pan
+  const viewBox = useMemo(() => {
+    const currentScale = Math.max(1, scale)
+    const vw = MAP_WIDTH / currentScale
+    const vh = MAP_HEIGHT / currentScale
+
+    const maxPanX = (MAP_WIDTH / 2) * (1 - 1 / currentScale)
+    const maxPanY = (MAP_HEIGHT / 2) * (1 - 1 / currentScale)
+
+    const clampedPanX = Math.max(-maxPanX, Math.min(maxPanX, pan.x))
+    const clampedPanY = Math.max(-maxPanY, Math.min(maxPanY, pan.y))
+
+    const vx = MAP_WIDTH / 2 + clampedPanX - vw / 2
+    const vy = MAP_HEIGHT / 2 + clampedPanY - vh / 2
+
+    return {
+      vx,
+      vy,
+      vw,
+      vh,
+      scale: currentScale,
+      isZoomed: currentScale > 1.05 || Boolean(focusedCode),
+    }
+  }, [scale, pan, focusedCode])
+
+  // Zoom via roda do mouse (scroll) não-passivo
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const factor = e.deltaY < 0 ? 1.2 : 1 / 1.2
+      setScale((prevScale) => {
+        const nextScale = Math.min(8, Math.max(1, prevScale * factor))
+        if (nextScale === 1) {
+          setPan({ x: 0, y: 0 })
+        }
+        return nextScale
+      })
+    }
+
+    container.addEventListener('wheel', handleWheel, { passive: false })
+    return () => {
+      container.removeEventListener('wheel', handleWheel)
+    }
+  }, [])
+
+  // Gestores de Pointer para arrasto livre (pan) e gestos de pinça (pinch zoom)
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return
+      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      dragDistanceRef.current = 0
+
+      if (activePointersRef.current.size === 1) {
+        isDraggingRef.current = true
+        dragStartRef.current = {
+          clientX: e.clientX,
+          clientY: e.clientY,
+          panX: pan.x,
+          panY: pan.y,
+        }
+      } else if (activePointersRef.current.size === 2) {
+        // Inicializa pinça
+        const pts = Array.from(activePointersRef.current.values())
+        pinchStartDistRef.current = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+        pinchStartScaleRef.current = scale
+      }
+    },
+    [pan, scale],
+  )
+
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent<HTMLDivElement>) => {
+      if (!activePointersRef.current.has(e.pointerId)) return
+      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+      // Pinch zoom de 2 dedos
+      if (activePointersRef.current.size === 2 && pinchStartDistRef.current > 0) {
+        const pts = Array.from(activePointersRef.current.values())
+        const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+        const factor = currentDist / pinchStartDistRef.current
+        const nextScale = Math.min(8, Math.max(1, pinchStartScaleRef.current * factor))
+        setScale(nextScale)
+        dragDistanceRef.current = 20
+        return
+      }
+
+      // Arrasto livre (pan) de 1 dedo / mouse
+      if (isDraggingRef.current) {
+        const dx = e.clientX - dragStartRef.current.clientX
+        const dy = e.clientY - dragStartRef.current.clientY
+        const dist = Math.hypot(dx, dy)
+        dragDistanceRef.current = dist
+
+        if (dist > 3) {
+          const container = containerRef.current
+          const rect = container?.getBoundingClientRect()
+          const ratioX = rect ? MAP_WIDTH / (rect.width * scale) : 1
+          const ratioY = rect ? MAP_HEIGHT / (rect.height * scale) : 1
+
+          setPan({
+            x: dragStartRef.current.panX - dx * ratioX,
+            y: dragStartRef.current.panY - dy * ratioY,
+          })
+        }
+      }
+
+      // Atualiza posição do Tooltip
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect()
+        setTooltipPos({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        })
+      }
+    },
+    [scale],
+  )
+
+  const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    activePointersRef.current.delete(e.pointerId)
+    if (activePointersRef.current.size === 0) {
+      isDraggingRef.current = false
+    }
+  }, [])
+
+  // Resetar zoom para enquadramento inicial do Brasil
+  const handleResetZoom = useCallback(() => {
+    setScale(1)
+    setPan({ x: 0, y: 0 })
+    onResetFocus?.()
+  }, [onResetFocus])
+
+  // Aumentar zoom (+)
+  const handleZoomIn = useCallback(() => {
+    setScale((prev) => Math.min(8, prev * 1.35))
+  }, [])
+
+  // Diminuir zoom (-)
+  const handleZoomOut = useCallback(() => {
+    setScale((prev) => {
+      const next = Math.max(1, prev / 1.35)
+      if (next === 1) setPan({ x: 0, y: 0 })
+      return next
+    })
+  }, [])
+
+  // Renderização em Canvas 2D
   useEffect(() => {
     if (renderMode !== 'canvas') return
     const canvas = canvasRef.current
@@ -184,9 +347,9 @@ export function GeoChoroplethMap({
 
     ctx.clearRect(0, 0, MAP_WIDTH, MAP_HEIGHT)
     ctx.save()
-    if (zoomViewport.isZoomed) {
-      ctx.scale(zoomViewport.scale, zoomViewport.scale)
-      ctx.translate(-zoomViewport.vx, -zoomViewport.vy)
+    if (viewBox.isZoomed) {
+      ctx.scale(viewBox.scale, viewBox.scale)
+      ctx.translate(-viewBox.vx, -viewBox.vy)
     }
 
     for (const feat of projected) {
@@ -208,14 +371,13 @@ export function GeoChoroplethMap({
       ctx.fillStyle = fill
       ctx.fill()
 
-      // Se < 30% apurado, aplica transparência / tracejado
       if (loc?.low_reliability) {
         ctx.save()
         ctx.strokeStyle = isDark
           ? 'rgba(251, 191, 36, 0.55)'
           : 'rgba(180, 83, 9, 0.45)'
-        ctx.setLineDash([3 / zoomViewport.scale, 3 / zoomViewport.scale])
-        ctx.lineWidth = 1 / zoomViewport.scale
+        ctx.setLineDash([3 / viewBox.scale, 3 / viewBox.scale])
+        ctx.lineWidth = 1 / viewBox.scale
         ctx.stroke()
         ctx.restore()
       } else {
@@ -226,7 +388,7 @@ export function GeoChoroplethMap({
           : isDark
             ? '#0f172a'
             : '#ffffff'
-        ctx.lineWidth = (isSelected ? 2.2 : 0.75) / zoomViewport.scale
+        ctx.lineWidth = (isSelected ? 2.2 : 0.75) / viewBox.scale
         ctx.stroke()
       }
     }
@@ -237,20 +399,21 @@ export function GeoChoroplethMap({
     findLocalityForFeature,
     getFeatureFill,
     selectedCode,
-    highlightedCode,
     isDark,
     scope,
-    zoomViewport,
+    viewBox,
   ])
 
+  // Canvas click e hover
   const handleCanvasPointer = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (dragDistanceRef.current > 6) return
     const canvas = canvasRef.current
     if (!canvas) return
     const rect = canvas.getBoundingClientRect()
-    const scaleX = zoomViewport.vw / rect.width
-    const scaleY = zoomViewport.vh / rect.height
-    const px = zoomViewport.vx + (e.clientX - rect.left) * scaleX
-    const py = zoomViewport.vy + (e.clientY - rect.top) * scaleY
+    const scaleX = viewBox.vw / rect.width
+    const scaleY = viewBox.vh / rect.height
+    const px = viewBox.vx + (e.clientX - rect.left) * scaleX
+    const py = viewBox.vy + (e.clientY - rect.top) * scaleY
 
     for (const feat of projected) {
       const [x0, y0, x1, y1] = feat.bboxPx
@@ -258,36 +421,236 @@ export function GeoChoroplethMap({
       for (const ring of feat.projectedRings) {
         if (pointInProjectedRing(px, py, ring)) {
           const loc = findLocalityForFeature(feat)
-          if (loc) onSelectLocality(loc)
+          if (loc) {
+            onSelectLocality(loc)
+            if (scope === 'uf' && loc.uf !== 'ZZ' && onZoomToUf) {
+              onZoomToUf(loc.uf)
+            }
+          }
           return
         }
       }
     }
   }
 
-  const viewBoxStr = `${zoomViewport.vx.toFixed(1)} ${zoomViewport.vy.toFixed(1)} ${zoomViewport.vw.toFixed(1)} ${zoomViewport.vh.toFixed(1)}`
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = viewBox.vw / rect.width
+    const scaleY = viewBox.vh / rect.height
+    const px = viewBox.vx + (e.clientX - rect.left) * scaleX
+    const py = viewBox.vy + (e.clientY - rect.top) * scaleY
 
-  if (renderMode === 'canvas') {
-    return (
+    setTooltipPos({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    })
+
+    for (const feat of projected) {
+      const [x0, y0, x1, y1] = feat.bboxPx
+      if (px < x0 || px > x1 || py < y0 || py > y1) continue
+      for (const ring of feat.projectedRings) {
+        if (pointInProjectedRing(px, py, ring)) {
+          const loc = findLocalityForFeature(feat)
+          setHoveredLoc(loc ?? null)
+          return
+        }
+      }
+    }
+    setHoveredLoc(null)
+  }
+
+  const viewBoxStr = `${viewBox.vx.toFixed(1)} ${viewBox.vy.toFixed(1)} ${viewBox.vw.toFixed(1)} ${viewBox.vh.toFixed(1)}`
+
+  // Posição calculada com proteção contra estouro de bordas para o Tooltip Flutuante
+  const tooltipStyle = useMemo(() => {
+    if (!tooltipPos || !containerRef.current) return null
+    const containerW = containerRef.current.clientWidth || MAP_WIDTH
+    const containerH = containerRef.current.clientHeight || MAP_HEIGHT
+    const tw = 224
+    const th = 150
+
+    let left = tooltipPos.x + 14
+    let top = tooltipPos.y - 45
+
+    if (left + tw > containerW - 12) {
+      left = tooltipPos.x - tw - 14
+    }
+    if (left < 12) left = 12
+
+    if (top + th > containerH - 12) {
+      top = containerH - th - 12
+    }
+    if (top < 12) top = 12
+
+    return { left: `${left}px`, top: `${top}px` }
+  }, [tooltipPos])
+
+  // Identificação do candidato líder na localidade sob hover
+  const isCand1Leader = hoveredLoc ? (hoveredLoc.cand1_pct_2t ?? 0) >= (hoveredLoc.cand2_pct_2t ?? 0) : false
+  const isCand2Leader = hoveredLoc ? (hoveredLoc.cand2_pct_2t ?? 0) > (hoveredLoc.cand1_pct_2t ?? 0) : false
+
+  return (
+    <div
+      ref={containerRef}
+      data-testid={renderMode === 'canvas' ? 'geo-choropleth-canvas-wrapper' : 'geo-choropleth-svg-wrapper'}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onPointerLeave={() => setHoveredLoc(null)}
+      className="relative mx-auto w-full overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100/40 select-none touch-none dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+      style={{ cursor: isDraggingRef.current ? 'grabbing' : 'grab' }}
+    >
+      {/* Botões Flutuantes e Discretos de Zoom e Pan no Canto do Mapa */}
       <div
-        data-testid="geo-choropleth-canvas-wrapper"
-        className="relative mx-auto w-full overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100/50 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+        data-testid="map-zoom-controls"
+        className="absolute bottom-3 right-3 z-30 flex flex-col gap-1 rounded-xl border border-white/15 bg-[#050505]/90 p-1 shadow-2xl backdrop-blur-md"
       >
-        {zoomViewport.isZoomed && onResetFocus && (
-          <button
-            type="button"
-            data-testid="reset-map-focus-btn"
-            onClick={onResetFocus}
-            className="absolute right-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100"
-          >
-            Redefinir zoom
-          </button>
-        )}
+        <button
+          type="button"
+          data-testid="map-zoom-in-btn"
+          onClick={handleZoomIn}
+          aria-label="Aumentar zoom"
+          title="Aumentar zoom (+)"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          data-testid="map-zoom-out-btn"
+          onClick={handleZoomOut}
+          aria-label="Diminuir zoom"
+          title="Diminuir zoom (-)"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition"
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          data-testid="map-reset-zoom-btn"
+          onClick={handleResetZoom}
+          aria-label="Resetar enquadramento do Brasil"
+          title="Resetar enquadramento (⟲)"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      {/* Botão legado para redefinir zoom quando focado */}
+      {viewBox.isZoomed && onResetFocus && (
+        <button
+          type="button"
+          data-testid="reset-map-focus-btn"
+          onClick={handleResetZoom}
+          className="absolute right-2.5 top-2.5 z-20 inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100"
+        >
+          Redefinir zoom
+        </button>
+      )}
+
+      {/* Tooltip / Pop-up Informativo Flutuante em True Black */}
+      {hoveredLoc && tooltipStyle && (
+        <div
+          data-testid="map-hover-tooltip"
+          style={tooltipStyle}
+          className="pointer-events-none absolute z-40 w-56 rounded-xl border border-white/20 bg-[#050505]/95 p-2.5 text-white shadow-2xl backdrop-blur-md"
+        >
+          <div className="flex items-center justify-between border-b border-white/10 pb-1.5">
+            <div className="truncate font-extrabold text-xs text-white">
+              {hoveredLoc.name}{' '}
+              <span className="font-semibold text-slate-400">({hoveredLoc.uf})</span>
+            </div>
+            <span className="shrink-0 rounded-md bg-white/10 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-300">
+              {formatPct(hoveredLoc.pct_counted)}
+            </span>
+          </div>
+
+          <div className="mt-2 space-y-1.5">
+            {/* Candidato 1 */}
+            <div
+              className={`flex items-center justify-between rounded-lg px-2 py-1 transition ${
+                isCand1Leader ? 'bg-white/10 ring-1 ring-white/20' : 'bg-transparent'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: cand1Hex }}
+                />
+                <span className="truncate text-[11px] font-bold text-slate-200">
+                  {cand1Name}
+                </span>
+                {isCand1Leader && (
+                  <span className="rounded bg-emerald-500/20 px-1 text-[9px] font-black uppercase text-emerald-400">
+                    Líder
+                  </span>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="font-mono text-xs font-black text-white">
+                  {formatPct(hoveredLoc.cand1_pct_2t)}
+                </div>
+                <div className="font-mono text-[9px] text-slate-400">
+                  {formatInt(hoveredLoc.cand1_votes_2t)} votos
+                </div>
+              </div>
+            </div>
+
+            {/* Candidato 2 */}
+            <div
+              className={`flex items-center justify-between rounded-lg px-2 py-1 transition ${
+                isCand2Leader ? 'bg-white/10 ring-1 ring-white/20' : 'bg-transparent'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span
+                  className="h-2 w-2 rounded-full shrink-0"
+                  style={{ backgroundColor: cand2Hex }}
+                />
+                <span className="truncate text-[11px] font-bold text-slate-200">
+                  {cand2Name}
+                </span>
+                {isCand2Leader && (
+                  <span className="rounded bg-emerald-500/20 px-1 text-[9px] font-black uppercase text-emerald-400">
+                    Líder
+                  </span>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="font-mono text-xs font-black text-white">
+                  {formatPct(hoveredLoc.cand2_pct_2t)}
+                </div>
+                <div className="font-mono text-[9px] text-slate-400">
+                  {formatInt(hoveredLoc.cand2_votes_2t)} votos
+                </div>
+              </div>
+            </div>
+
+            {metricMode === 'swing_1t' && (
+              <div className="border-t border-white/10 pt-1 text-[10px] text-slate-300">
+                Variação ({perspectiveSlot === 1 ? cand1Name : cand2Name}):{' '}
+                {formatSignedPP(
+                  perspectiveSlot === 1
+                    ? (hoveredLoc.cand1_swing_pp ?? hoveredLoc.net_swing_cand1_pp)
+                    : (hoveredLoc.cand2_swing_pp ?? (hoveredLoc.net_swing_cand1_pp !== null && hoveredLoc.net_swing_cand1_pp !== undefined ? -hoveredLoc.net_swing_cand1_pp : null)),
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {renderMode === 'canvas' ? (
         <canvas
           ref={canvasRef}
           width={MAP_WIDTH}
           height={MAP_HEIGHT}
           onClick={handleCanvasPointer}
+          onMouseMove={handleCanvasMouseMove}
           className="h-auto w-full cursor-pointer"
           aria-label={
             scope === 'uf'
@@ -295,182 +658,151 @@ export function GeoChoroplethMap({
               : 'Mapa geográfico municipal em Canvas'
           }
         />
-      </div>
-    )
-  }
-
-  return (
-    <div
-      data-testid="geo-choropleth-svg-wrapper"
-      className="relative mx-auto w-full overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100/40 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
-    >
-      {zoomViewport.isZoomed && onResetFocus && (
-        <button
-          type="button"
-          data-testid="reset-map-focus-btn"
-          onClick={onResetFocus}
-          className="absolute right-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-800 shadow-sm backdrop-blur hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-100"
+      ) : (
+        <svg
+          viewBox={viewBoxStr}
+          role="img"
+          aria-label={
+            scope === 'uf'
+              ? 'Mapa geográfico oficial do IBGE por Unidade da Federação'
+              : 'Mapa geográfico oficial do IBGE por município'
+          }
+          className="h-auto w-full select-none"
         >
-          Redefinir zoom
-        </button>
-      )}
-      <svg
-        viewBox={viewBoxStr}
-        role="img"
-        aria-label={
-          scope === 'uf'
-            ? 'Mapa geográfico oficial do IBGE por Unidade da Federação'
-            : 'Mapa geográfico oficial do IBGE por município'
-        }
-        className="h-auto w-full select-none transition-all duration-300"
-      >
-        <defs>
-          {/* Padrão diagonal de hachura para locais com < 30% das urnas apuradas */}
-          <pattern
-            id="map-low-reliability-hatch"
-            width="8"
-            height="8"
-            patternTransform="rotate(45 0 0)"
-            patternUnits="userSpaceOnUse"
-          >
-            <line
-              x1="0"
-              y1="0"
-              x2="0"
-              y2="8"
-              stroke={isDark ? '#f8fafc' : '#0f172a'}
-              strokeWidth="2"
-              strokeOpacity="0.32"
-            />
-          </pattern>
-        </defs>
+          <defs>
+            <pattern
+              id="map-low-reliability-hatch"
+              width="8"
+              height="8"
+              patternTransform="rotate(45 0 0)"
+              patternUnits="userSpaceOnUse"
+            >
+              <line
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="8"
+                stroke={isDark ? '#f8fafc' : '#0f172a'}
+                strokeWidth="2"
+                strokeOpacity="0.32"
+              />
+            </pattern>
+          </defs>
 
-        <g>
-          {projected.map((feat) => {
-            const loc = findLocalityForFeature(feat)
-            const fillColor = getFeatureFill(loc)
-            const isSelected =
-              loc &&
-              (selectedCode === loc.code_tse ||
-                (scope === 'uf' && selectedCode === loc.uf))
-            const isHighlighted =
-              loc &&
-              (highlightedCode === loc.code_tse ||
-                (scope === 'uf' && highlightedCode === loc.uf) ||
-                loc.changed_in_last_cycle)
-            const rawSwing =
-              perspectiveSlot === 1
-                ? (loc?.cand1_swing_pp ?? null)
-                : (loc?.cand2_swing_pp ?? null)
-            const codeAttr =
-              scope === 'uf'
-                ? String(feat.properties.uf ?? feat.id)
-                : String(feat.properties.code_tse ?? feat.id)
+          <g>
+            {projected.map((feat) => {
+              const loc = findLocalityForFeature(feat)
+              const fillColor = getFeatureFill(loc)
+              const isSelected =
+                loc &&
+                (selectedCode === loc.code_tse ||
+                  (scope === 'uf' && selectedCode === loc.uf))
+              const isHighlighted =
+                loc &&
+                (highlightedCode === loc.code_tse ||
+                  (scope === 'uf' && highlightedCode === loc.uf) ||
+                  loc.changed_in_last_cycle)
+              const codeAttr =
+                scope === 'uf'
+                  ? String(feat.properties.uf ?? feat.id)
+                  : String(feat.properties.code_tse ?? feat.id)
 
-            const tooltipDetail =
-              metricMode === 'live_2t'
-                ? `${cand1Name}: ${formatPct(loc?.cand1_pct_2t ?? null)} | ${cand2Name}: ${formatPct(loc?.cand2_pct_2t ?? null)}`
-                : `Variação: ${rawSwing !== null ? formatSignedPP(rawSwing) : 'Sem dados'}`
-
-            return (
-              <g
-                key={feat.id}
-                data-testid={`geo-feature-${codeAttr}`}
-                onClick={() => {
-                  if (loc) onSelectLocality(loc)
-                }}
-                onDoubleClick={() => {
-                  if (scope === 'uf' && loc && loc.uf !== 'ZZ' && onZoomToUf) {
-                    onZoomToUf(loc.uf)
-                  }
-                }}
-                className="cursor-pointer"
-              >
-                <title>
-                  {loc
-                    ? `${loc.name} (${loc.uf}) — ${formatPct(loc.pct_counted)} apurado | ${tooltipDetail}`
-                    : String(feat.properties.name ?? feat.id)}
-                </title>
-                <path
-                  d={feat.svgPath}
-                  fill={fillColor}
-                  fillOpacity={loc?.low_reliability ? 0.72 : 1}
-                  stroke={
-                    isSelected
-                      ? isDark
-                        ? '#ffffff'
-                        : '#0f172a'
-                      : isHighlighted
-                        ? '#f59e0b'
-                        : isDark
-                          ? '#0f172a'
-                          : '#ffffff'
-                  }
-                  strokeWidth={
-                    (isSelected
-                      ? 2.4
-                      : isHighlighted
-                        ? 1.8
-                        : scope === 'uf'
-                          ? 1.05
-                          : 0.55) / Math.pow(zoomViewport.scale, 0.65)
-                  }
-                  style={{
-                    transition:
-                      'fill 420ms cubic-bezier(0.22, 1, 0.36, 1), stroke-width 180ms ease',
+              return (
+                <g
+                  key={feat.id}
+                  data-testid={`geo-feature-${codeAttr}`}
+                  onClick={() => {
+                    if (dragDistanceRef.current > 6) return
+                    if (loc) {
+                      onSelectLocality(loc)
+                      if (scope === 'uf' && loc.uf !== 'ZZ' && onZoomToUf) {
+                        onZoomToUf(loc.uf)
+                      }
+                    }
                   }}
-                  className="hover:brightness-105"
-                />
-
-                {/* Sobreposição de hachura para locais com < 30% apurado */}
-                {loc?.low_reliability && (
+                  onPointerEnter={() => setHoveredLoc(loc ?? null)}
+                  className="cursor-pointer"
+                >
                   <path
                     d={feat.svgPath}
-                    fill="url(#map-low-reliability-hatch)"
-                    pointerEvents="none"
+                    fill={fillColor}
+                    fillOpacity={loc?.low_reliability ? 0.72 : 1}
+                    stroke={
+                      isSelected
+                        ? isDark
+                          ? '#ffffff'
+                          : '#0f172a'
+                        : isHighlighted
+                          ? '#f59e0b'
+                          : isDark
+                            ? '#0f172a'
+                            : '#ffffff'
+                    }
+                    strokeWidth={
+                      (isSelected
+                        ? 2.4
+                        : isHighlighted
+                          ? 1.8
+                          : scope === 'uf'
+                            ? 1.05
+                            : 0.55) / Math.pow(viewBox.scale, 0.65)
+                    }
+                    style={{
+                      transition:
+                        'fill 420ms cubic-bezier(0.22, 1, 0.36, 1), stroke-width 180ms ease',
+                    }}
+                    className="hover:brightness-110"
                   />
-                )}
-              </g>
-            )
-          })}
-        </g>
 
-        {/* Rótulos de sigla das UFs no mapa nacional (ou da capital / selecionado no mapa municipal) */}
-        <g pointerEvents="none">
-          {projected.map((feat) => {
-            const loc = findLocalityForFeature(feat)
-            const isSelected =
-              loc &&
-              (selectedCode === loc.code_tse ||
-                (scope === 'uf' && selectedCode === loc.uf))
-            if (scope === 'mu' && !loc?.is_capital && !isSelected) {
-              return null
-            }
-            const label =
-              scope === 'uf'
-                ? String(feat.properties.uf ?? feat.id)
-                : String(feat.properties.name ?? '')
-            const [cx, cy] = feat.centroidPx
-            const fontSize = Math.max(
-              5.5,
-              10 / Math.pow(zoomViewport.scale, 0.65),
-            )
-            return (
-              <text
-                key={`lbl-${feat.id}`}
-                x={cx}
-                y={cy}
-                fontSize={fontSize}
-                textAnchor="middle"
-                dominantBaseline="central"
-                className="fill-slate-950 font-sans font-extrabold drop-shadow-[0_1px_2px_rgba(255,255,255,0.85)] dark:fill-white dark:drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
-              >
-                {label}
-              </text>
-            )
-          })}
-        </g>
-      </svg>
+                  {loc?.low_reliability && (
+                    <path
+                      d={feat.svgPath}
+                      fill="url(#map-low-reliability-hatch)"
+                      pointerEvents="none"
+                    />
+                  )}
+                </g>
+              )
+            })}
+          </g>
+
+          {/* Rótulos das UFs ou capitais */}
+          <g pointerEvents="none">
+            {projected.map((feat) => {
+              const loc = findLocalityForFeature(feat)
+              const isSelected =
+                loc &&
+                (selectedCode === loc.code_tse ||
+                  (scope === 'uf' && selectedCode === loc.uf))
+              if (scope === 'mu' && !loc?.is_capital && !isSelected) {
+                return null
+              }
+              const label =
+                scope === 'uf'
+                  ? String(feat.properties.uf ?? feat.id)
+                  : String(feat.properties.name ?? '')
+              const [cx, cy] = feat.centroidPx
+              const fontSize = Math.max(
+                5.5,
+                10 / Math.pow(viewBox.scale, 0.65),
+              )
+              return (
+                <text
+                  key={`lbl-${feat.id}`}
+                  x={cx}
+                  y={cy}
+                  fontSize={fontSize}
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  className="fill-slate-950 font-sans font-extrabold drop-shadow-[0_1px_2px_rgba(255,255,255,0.85)] dark:fill-white dark:drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
+                >
+                  {label}
+                </text>
+              )
+            })}
+          </g>
+        </svg>
+      )}
     </div>
   )
 }

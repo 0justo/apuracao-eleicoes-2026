@@ -29,7 +29,7 @@ CANDIDATE_WIKI_TARGETS: dict[str, list[str]] = {
     "70002553055": ["Leandro_Grass"],
     "80002552172": ["Ricardo_Ferraço"],
     "80002552682": ["Lorenzo_Pazolini"],
-    "200002534001": ["Carlos_Eduardo_Xavier", "Fátima_Bezerra"],
+    "200002534001": ["Carlos_Eduardo_Xavier"],
     "200002535255": ["Allyson_Bezerra"],
     "270002544544": ["Dorinha_Rezende", "Professora_Dorinha", "Dorinha_Seabra_Rezende"],
     "270002544599": ["Vicentinho_Júnior"],
