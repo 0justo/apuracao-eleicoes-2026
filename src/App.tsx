@@ -348,10 +348,10 @@ export function App() {
 
             {/* NOVO GRID PRINCIPAL DE 3 COLUNAS NO DESKTOP (lg:grid-cols-12 gap-5 items-start) */}
             <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
-              {/* COLUNA ESQUERDA (lg:col-span-4):
+              {/* COLUNA ESQUERDA (lg:col-span-4 xl:col-span-3):
                   a) Calculadora da Virada limpa e em destaque
                   b) Lex em formato compacto com scroll */}
-              <div className="contents lg:col-span-4 lg:flex lg:flex-col lg:gap-5">
+              <div className="contents lg:col-span-4 xl:col-span-3 lg:flex lg:flex-col lg:gap-5">
                 <div className="order-1 lg:order-none">
                   <TurnaroundCalculator snapshot={snapshot} />
                 </div>
@@ -364,16 +364,24 @@ export function App() {
                 </div>
               </div>
 
-              {/* COLUNA CENTRAL (lg:col-span-5 — Destaque Cartográfico):
-                  a) Mapa de Apuração ao Vivo / Variação
-                  b) Linha do Tempo da Apuração & Replay 2022 */}
-              <div className="contents lg:col-span-5 lg:flex lg:flex-col lg:gap-5">
+              {/* COLUNA CENTRAL (lg:col-span-4 xl:col-span-6 — Destaque Cartográfico):
+                  a) Mapa de Apuração ao Vivo / Variação */}
+              <div className="contents lg:col-span-4 xl:col-span-6 lg:flex lg:flex-col lg:gap-5">
                 <div className="order-3 lg:order-none">
                   <SwingMapSection
                     snapshot={snapshot}
                     stage={stage}
                     isDark={theme === 'dark'}
                   />
+                </div>
+              </div>
+
+              {/* COLUNA DIREITA (lg:col-span-4 xl:col-span-3 — Simetria com a Coluna Esquerda):
+                  a) Onde Ainda Falta Contar (com scroll interno)
+                  b) Linha do Tempo da Apuração & Replay 2022 */}
+              <div className="contents lg:col-span-4 xl:col-span-3 lg:flex lg:flex-col lg:gap-5">
+                <div className="order-4 lg:order-none">
+                  <WhereVotesRemain snapshot={snapshot} />
                 </div>
                 <div className="order-5 lg:order-none">
                   <MarginTimelineChart
@@ -396,14 +404,6 @@ export function App() {
                     }
                     onChangeReplaySpeed={(ms) => setReplaySpeedMs(ms)}
                   />
-                </div>
-              </div>
-
-              {/* COLUNA DIREITA (lg:col-span-3 — Onde Falta Contar em destaque isolado):
-                  a) Onde Ainda Falta Contar */}
-              <div className="contents lg:col-span-3 lg:flex lg:flex-col lg:gap-5">
-                <div className="order-4 lg:order-none">
-                  <WhereVotesRemain snapshot={snapshot} />
                 </div>
               </div>
             </div>

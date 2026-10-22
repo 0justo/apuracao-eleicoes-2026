@@ -187,10 +187,16 @@ export function MarginTimelineChart({
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-3.5 lg:flex-row lg:items-center lg:justify-between dark:border-[#1F1F24]">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <LineChart
-              className="h-5 w-5 text-slate-700 dark:text-slate-300"
-              aria-hidden="true"
-            />
+            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
+              <LineChart className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <span
+                className="absolute -top-1 -right-1 flex h-2.5 w-2.5"
+                title="Indicador da Linha do Tempo"
+              >
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              </span>
+            </div>
             <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white">
               Linha do Tempo da Apuração
             </h2>

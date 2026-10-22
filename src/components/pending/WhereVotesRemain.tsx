@@ -2,9 +2,7 @@ import { useState } from 'react'
 import {
   ArrowUpDown,
   BarChart3,
-  ChevronDown,
   ChevronRight,
-  ChevronUp,
   Info,
   Search,
   SlidersHorizontal,
@@ -33,7 +31,6 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
   const [activeTab, setActiveTab] = useState<'ranking' | 'reference'>('ranking')
   const [sortBy, setSortBy] = useState<SortByMode>('remaining_votes')
   const [searchQuery, setSearchQuery] = useState<string>('')
-  const [showAllCards, setShowAllCards] = useState<boolean>(false)
 
   // Para Presidente: permite expandir uma UF e ver o ranking dos municípios dela
   const [selectedPresUf, setSelectedPresUf] = useState<string | null>(null)
@@ -113,25 +110,28 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
       )
     })
 
-  // Se o usuário estiver pesquisando ou clicou em "Ver todas", mostra tudo; caso contrário, Top 6
-  const visibleCards = showAllCards || searchQuery.trim().length > 0
-    ? filteredLocalities
-    : filteredLocalities.slice(0, 6)
+  const visibleCards = filteredLocalities
 
   return (
     <section
       aria-label="Onde ainda falta contar"
       data-testid="where-votes-remain"
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
+      className="flex flex-col h-[380px] sm:h-[420px] max-h-[420px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
     >
       {/* 1. Cabeçalho Limpo: Título + Ícone ⓘ com Tooltip Dinâmico + Toggle Feature Flag */}
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 text-base font-bold text-slate-900 sm:text-lg dark:text-white">
-            <BarChart3
-              className="h-5 w-5 text-slate-700 dark:text-slate-300"
-              aria-hidden="true"
-            />
+          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-600 text-white shadow-sm">
+            <BarChart3 className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+            <span
+              className="absolute -top-1 -right-1 flex h-2.5 w-2.5"
+              title="Indicador de votos pendentes"
+            >
+              <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+            </span>
+          </div>
+          <span className="text-base font-bold text-slate-900 sm:text-lg dark:text-white">
             Onde ainda falta contar
           </span>
 
@@ -184,7 +184,7 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
       {/* 2. Barra Empilhada Compacta: Votos restantes onde Cand 1 vs Cand 2 liderou no 1ºT */}
       <div
         data-testid="stacked-pending-bar-card"
-        className="mt-3.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+        className="mt-3.5 shrink-0 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
       >
         <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
           <span className="font-semibold text-slate-700 dark:text-slate-300">
@@ -250,7 +250,7 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
       </div>
 
       {/* 3. Barra de Controles: Busca + Ordenação */}
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5 dark:border-[#1F1F24]">
+      <div className="mt-3 shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5 dark:border-[#1F1F24]">
         <div className="flex items-center gap-1.5">
           <div className="relative">
             <Search
@@ -304,9 +304,9 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
         </button>
       </div>
 
-      {/* 4. Lista Vertical de Cartões Visuais Compactos (Top 6 / Expandível) */}
+      {/* 4. Lista Vertical de Cartões Visuais com Scroll Interno */}
       <div
-        className="mt-3 space-y-2 max-h-[520px] overflow-y-auto pr-0.5"
+        className="mt-3 flex-1 min-h-0 space-y-2 overflow-y-auto pr-1 scrollbar-thin [scrollbar-width:thin]"
         data-testid="pending-localities-table"
       >
         {selectedPresUf && (
@@ -412,26 +412,6 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
             </div>
           )
         })}
-
-        {filteredLocalities.length > 6 && !searchQuery.trim() && (
-          <button
-            type="button"
-            onClick={() => setShowAllCards((prev) => !prev)}
-            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-[#1F1F24] dark:text-slate-300 dark:hover:bg-[#0F0F12]"
-          >
-            {showAllCards ? (
-              <>
-                <ChevronUp className="h-3.5 w-3.5" aria-hidden="true" />
-                Mostrar apenas o Top 6 localidades
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                Ver todas as {filteredLocalities.length} localidades pendentes
-              </>
-            )}
-          </button>
-        )}
       </div>
     </section>
   )

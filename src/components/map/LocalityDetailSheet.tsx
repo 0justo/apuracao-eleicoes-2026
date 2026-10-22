@@ -94,6 +94,7 @@ export function LocalityDetailSheet({
           {canZoomToMunicipalities &&
             locality.scope_type === 'uf' &&
             locality.uf !== 'ZZ' &&
+            locality.uf !== 'BR' &&
             onZoomToUf && (
               <button
                 type="button"

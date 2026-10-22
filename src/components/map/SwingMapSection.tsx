@@ -19,8 +19,6 @@ import { formatPct, formatSignedPP } from '../../utils/formatters'
 import {
   type DecodedGeoFeature,
   decodeTopoJSON,
-  getDivergentSwingFill,
-  getLiveLeaderFill,
   type MapMetricMode,
   type TopoJSONTopology,
 } from '../../utils/geoProjection'
@@ -95,8 +93,9 @@ export function SwingMapSection({
   // Renderizador: SVG vetorial por padrão para permitir zoom suave por viewBox
   const [renderOverride, setRenderOverride] = useState<'auto' | 'svg' | 'canvas'>('svg')
 
-  // Local selecionado no cartão inferior, código focado com zoom e busca
+  // Local selecionado no cartão superior, código focado com zoom e busca
   const [selectedCode, setSelectedCode] = useState<string | null>(() => {
+    if (isPresidential) return null
     return (
       snapshot.highlighted_locality_code ??
       snapshot.localities[0]?.code_tse ??
@@ -133,9 +132,11 @@ export function SwingMapSection({
       setZoomedUf(snapshot.uf.toUpperCase())
     }
     setSelectedCode(
-      snapshot.highlighted_locality_code ??
-        snapshot.localities[0]?.code_tse ??
-        null,
+      isPresidential
+        ? null
+        : (snapshot.highlighted_locality_code ??
+            snapshot.localities[0]?.code_tse ??
+            null),
     )
     setFocusedCode(null)
     setSearchQuery('')
@@ -265,8 +266,67 @@ export function SwingMapSection({
         : 'svg'
       : renderOverride
 
+  const nationalLocality: LocalityDataItem = useMemo(() => {
+    const c1 = snapshot.candidates[0]
+    const c2 = snapshot.candidates[1]
+    const c1Votes = c1.votes
+    const c2Votes = c2.votes
+    const validVotes = snapshot.votes.valid_votes || (c1Votes + c2Votes)
+    const c1Pct = validVotes > 0 ? (c1Votes / validVotes) * 100 : 0
+    const c2Pct = validVotes > 0 ? (c2Votes / validVotes) * 100 : 0
+    const margin = Math.abs(c1Pct - c2Pct)
+    const pctCounted = snapshot.sections.pct_counted
+
+    return {
+      code_tse: 'BR',
+      code_ibge: '00',
+      uf: 'BR',
+      name: 'Brasil (Total Nacional)',
+      is_capital: false,
+      scope_type: 'uf',
+      updated_at: snapshot.generated_at_hms,
+      total_sections: snapshot.sections.total_sections,
+      counted_sections: snapshot.sections.counted_sections,
+      pct_counted: pctCounted,
+      pct_remaining: Math.max(0, 100 - pctCounted),
+      low_reliability: pctCounted < 30,
+      total_electorate: snapshot.electorate.total_electorate,
+      turnout_votes_2t: snapshot.electorate.turnout_votes,
+      turnout_votes_1t: snapshot.electorate.turnout_1t,
+      valid_votes_2t: snapshot.votes.valid_votes,
+      blank_votes_2t: snapshot.votes.blank_votes,
+      null_votes_2t: snapshot.votes.null_votes,
+      blank_null_rate_1t: snapshot.votes.blank_null_rate_1t,
+      cand1_votes_2t: c1Votes,
+      cand2_votes_2t: c2Votes,
+      cand1_pct_2t: c1Pct,
+      cand2_pct_2t: c2Pct,
+      margin_2t_pp: margin,
+      cand1_votes_1t: c1.votes_1t ?? 0,
+      cand2_votes_1t: c2.votes_1t ?? 0,
+      valid_votes_1t: (c1.votes_1t ?? 0) + (c2.votes_1t ?? 0),
+      cand1_pct_1t: c1.pct_valid_1t ?? 0,
+      cand2_pct_1t: c2.pct_valid_1t ?? 0,
+      cand1_norm_1t: c1.pct_two_cand_1t ?? 0,
+      cand2_norm_1t: c2.pct_two_cand_1t ?? 0,
+      leader_1t_slot: (c1.votes_1t ?? 0) >= (c2.votes_1t ?? 0) ? 1 : 2,
+      leader_1t_name: (c1.votes_1t ?? 0) >= (c2.votes_1t ?? 0) ? c1.ballot_name : c2.ballot_name,
+      margin_1t_pp: Math.abs((c1.pct_valid_1t ?? 0) - (c2.pct_valid_1t ?? 0)),
+      cand1_swing_pp: c1.swing_pp ?? null,
+      cand2_swing_pp: c2.swing_pp ?? null,
+      net_swing_cand1_pp: c1.swing_pp ?? null,
+      estimated_remaining_valid_votes: snapshot.pending_summary.total_remaining_valid_votes,
+      changed_in_last_cycle: false,
+      delta_pct_counted_last_cycle: 0,
+      source_json_url: snapshot.source_json_url,
+      source_portal_url: snapshot.source_portal_url,
+    }
+  }, [snapshot])
+
   const selectedLocality: LocalityDataItem | null = useMemo(() => {
-    if (activeLocalities.length === 0) return null
+    if (activeLocalities.length === 0) {
+      return isPresidential && activeScope === 'uf' ? nationalLocality : null
+    }
     if (selectedCode) {
       const found = activeLocalities.find(
         (l) =>
@@ -275,6 +335,9 @@ export function SwingMapSection({
             l.uf.toUpperCase() === selectedCode.toUpperCase()),
       )
       if (found) return found
+    }
+    if (isPresidential && activeScope === 'uf' && !selectedCode) {
+      return nationalLocality
     }
     return (
       activeLocalities.find(
@@ -285,6 +348,8 @@ export function SwingMapSection({
     activeLocalities,
     selectedCode,
     activeScope,
+    isPresidential,
+    nationalLocality,
     snapshot.highlighted_locality_code,
   ])
 
@@ -418,10 +483,16 @@ export function SwingMapSection({
       <div className="flex flex-col gap-3 border-b border-slate-200 pb-3.5 lg:flex-row lg:items-center lg:justify-between dark:border-[#1F1F24]">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <MapIcon
-              className="h-5 w-5 text-slate-700 dark:text-slate-300"
-              aria-hidden="true"
-            />
+            <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm">
+              <MapIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+              <span
+                className="absolute -top-1 -right-1 flex h-2.5 w-2.5"
+                title="Indicador do Mapa ao Vivo"
+              >
+                <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              </span>
+            </div>
             <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white">
               {metricMode === 'live_2t'
                 ? 'Mapa de Apuração ao Vivo — 2º Turno'
@@ -585,8 +656,8 @@ export function SwingMapSection({
             }}
             placeholder={
               activeScope === 'uf'
-                ? 'Pesquisar estado ou município (zoom automático)...'
-                : `Pesquisar município em ${zoomedUf} (zoom automático)...`
+                ? 'Pesquisar estado ou município...'
+                : `Pesquisar município em ${zoomedUf}...`
             }
             aria-label="Buscar localidade no mapa com zoom automático"
             className="w-full rounded-xl border border-slate-300 bg-white py-1.5 pr-8 pl-8 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-100 dark:focus:border-white"
@@ -706,100 +777,14 @@ export function SwingMapSection({
         </div>
       )}
 
-      {/* Legenda Sempre Visível (adapta entre Ao Vivo 2º Turno e Variação vs. 1º Turno) */}
-      <div
-        data-testid="swing-map-legend"
-        aria-label="Legenda cromática do mapa eleitoral"
-        className="mt-3 rounded-xl border border-slate-200/90 bg-slate-50/90 p-2.5 text-[11px] dark:border-[#1F1F24] dark:bg-[#0F0F12]"
-      >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className={`font-bold ${theme2.textAccentClass}`}>
-            ◄{' '}
-            {metricMode === 'live_2t'
-              ? `Mais votos no 2ºT: ${cand2.ballot_name} (${cand2.party_acronym})`
-              : `Maior avanço vs. 1ºT: ${cand2.ballot_name} (${cand2.party_acronym})`}
-          </span>
-          <span className="font-medium text-slate-600 dark:text-slate-400">
-            {metricMode === 'live_2t'
-              ? 'Equilíbrio (50% / 50%)'
-              : 'Centro Neutro (0,00 p.p.)'}
-          </span>
-          <span className={`font-bold ${theme1.textAccentClass}`}>
-            {metricMode === 'live_2t'
-              ? `Mais votos no 2ºT: ${cand1.ballot_name} (${cand1.party_acronym})`
-              : `Maior avanço vs. 1ºT: ${cand1.ballot_name} (${cand1.party_acronym})`}{' '}
-            ►
-          </span>
-        </div>
-
-        {metricMode === 'live_2t' ? (
-          <div className="mt-1.5 grid grid-cols-7 gap-1">
-            {[
-              { c1: 35, c2: 65, label: '65%' },
-              { c1: 42, c2: 58, label: '58%' },
-              { c1: 47, c2: 53, label: '53%' },
-              { c1: 50, c2: 50, label: '50/50' },
-              { c1: 53, c2: 47, label: '53%' },
-              { c1: 58, c2: 42, label: '58%' },
-              { c1: 65, c2: 35, label: '65%' },
-            ].map((item, idx) => (
-              <div key={idx} className="flex flex-col items-center gap-0.5">
-                <span
-                  className="h-3 w-full rounded-xs border border-slate-300/80 dark:border-slate-700"
-                  style={{
-                    backgroundColor: getLiveLeaderFill(
-                      item.c1,
-                      item.c2,
-                      100,
-                      isDark,
-                      cand1Hex,
-                      cand2Hex,
-                    ),
-                  }}
-                />
-                <span className="font-mono text-[10px] text-slate-600 dark:text-slate-400">
-                  {item.label}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="mt-1.5 grid grid-cols-7 gap-1">
-            {[-3, -2, -1, 0, 1, 2, 3].map((step) => (
-              <div key={step} className="flex flex-col items-center gap-0.5">
-                <span
-                  className="h-3 w-full rounded-xs border border-slate-300/80 dark:border-slate-700"
-                  style={{
-                    backgroundColor: getDivergentSwingFill(
-                      step,
-                      isDark,
-                      3.0,
-                      cand1Hex,
-                      cand2Hex,
-                    ),
-                  }}
-                />
-                <span className="font-mono text-[10px] text-slate-600 dark:text-slate-400">
-                  {step === 0 ? '0 p.p.' : `${step > 0 ? '+' : ''}${step} p.p.`}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 pt-1.5 text-[10px] text-slate-500 dark:border-slate-700/70 dark:text-slate-400">
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              className="low-reliability-hatch inline-block h-3 w-5 rounded-xs border border-dashed border-slate-400 bg-slate-200 dark:bg-slate-700"
-              aria-hidden="true"
-            />
-            Hachura / tracejado: local com{' '}
-            <strong>&lt;30% das urnas apuradas</strong> (baixa confiabilidade)
-          </span>
-          <span>
-            Malha oficial IBGE · Transição suave (420 ms) a cada ciclo
-          </span>
-        </div>
+      {/* Cartão de Detalhes da Localidade Selecionada (posicionado no topo, logo acima do mapa) */}
+      <div className="mt-3">
+        <LocalityDetailSheet
+          locality={selectedLocality}
+          candidates={snapshot.candidates}
+          canZoomToMunicipalities={isPresidential && activeScope === 'uf'}
+          onZoomToUf={handleZoomToUf}
+        />
       </div>
 
       {/* Barra de Breadcrumb e Retorno ao Brasil ao visualizar municípios de um estado */}
@@ -835,7 +820,7 @@ export function SwingMapSection({
         </div>
       )}
 
-      {/* Área do Mapa (Largura total no celular, sem sobreposição com o cartão fixo abaixo) */}
+      {/* Área do Mapa (Largura total no celular) */}
       <div className="mt-3">
         {loadingGeo ? (
           <div className="flex h-72 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
@@ -880,14 +865,54 @@ export function SwingMapSection({
         )}
       </div>
 
-      {/* Cartão Fixo na Parte de Baixo da Seção com os Detalhes da Localidade Selecionada */}
-      <div className="mt-3">
-        <LocalityDetailSheet
-          locality={selectedLocality}
-          candidates={snapshot.candidates}
-          canZoomToMunicipalities={isPresidential && activeScope === 'uf'}
-          onZoomToUf={handleZoomToUf}
-        />
+      {/* Legenda do Mapa Contínua em Gradiente Suave (abaixo do mapa) */}
+      <div
+        data-testid="swing-map-legend"
+        aria-label="Legenda cromática do mapa eleitoral"
+        className="mt-3 rounded-xl border border-slate-200/90 bg-slate-50/90 p-2.5 text-[11px] dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span className={`font-bold ${theme2.textAccentClass}`}>
+            ◄ {metricMode === 'live_2t' ? `Mais votos no 2ºT: ${cand2.ballot_name} (${cand2.party_acronym})` : `Maior avanço vs. 1ºT: ${cand2.ballot_name} (${cand2.party_acronym})`}
+          </span>
+          <span className="font-medium text-slate-600 dark:text-slate-400">
+            {metricMode === 'live_2t' ? 'Equilíbrio (50% / 50%)' : 'Centro Neutro (0,00 p.p.)'}
+          </span>
+          <span className={`font-bold ${theme1.textAccentClass}`}>
+            {metricMode === 'live_2t' ? `Mais votos no 2ºT: ${cand1.ballot_name} (${cand1.party_acronym})` : `Maior avanço vs. 1ºT: ${cand1.ballot_name} (${cand1.party_acronym})`} ►
+          </span>
+        </div>
+
+        {/* Barra de Gradiente Contínuo */}
+        <div className="mt-2 flex flex-col gap-1">
+          <div
+            className="h-3 w-full rounded-full border border-slate-300/80 shadow-2xs dark:border-slate-700"
+            style={{
+              background: `linear-gradient(to right, ${cand2Hex}, #94a3b8 50%, ${cand1Hex})`,
+            }}
+          />
+          <div className="flex items-center justify-between font-mono text-[10px] text-slate-500 dark:text-slate-400 px-0.5">
+            <span>{metricMode === 'live_2t' ? '+20%' : '+3 p.p.'}</span>
+            <span>{metricMode === 'live_2t' ? '+10%' : '+1 p.p.'}</span>
+            <span className="font-semibold text-slate-700 dark:text-slate-300">0 (Empate)</span>
+            <span>{metricMode === 'live_2t' ? '+10%' : '+1 p.p.'}</span>
+            <span>{metricMode === 'live_2t' ? '+20%' : '+3 p.p.'}</span>
+          </div>
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 pt-1.5 text-[10px] text-slate-500 dark:border-slate-700/70 dark:text-slate-400">
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className="low-reliability-hatch inline-block h-3 w-5 rounded-xs border border-dashed border-slate-400 bg-slate-200 dark:bg-slate-700"
+              aria-hidden="true"
+            />
+            Hachura / tracejado: local com{' '}
+            <strong>&lt;30% das urnas apuradas</strong> (baixa confiabilidade)
+          </span>
+          <span>
+            Malha oficial IBGE · Transição suave (420 ms) a cada ciclo
+          </span>
+        </div>
       </div>
 
       {/* Em modo municipal com muitos municípios, mostra pílulas rápidas das principais cidades para toque fácil */}
