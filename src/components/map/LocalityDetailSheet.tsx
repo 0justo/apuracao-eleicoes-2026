@@ -1,6 +1,5 @@
 import {
   AlertTriangle,
-  ArrowUpRight,
   Sparkles,
   ZoomIn,
 } from 'lucide-react'
@@ -166,10 +165,10 @@ export function LocalityDetailSheet({
             </div>
             <div>
               <span className="block text-[10px] uppercase tracking-wider text-slate-400">
-                1º Turno (Base 2 cand.)
+                1º Turno (Oficial)
               </span>
               <strong className="font-mono text-xs text-slate-800 dark:text-slate-200">
-                {formatPct(locality.cand1_norm_1t)}
+                {formatPct(locality.cand1_pct_1t)}
               </strong>{' '}
               ({formatInt(locality.cand1_votes_1t)})
             </div>
@@ -216,10 +215,10 @@ export function LocalityDetailSheet({
             </div>
             <div>
               <span className="block text-[10px] uppercase tracking-wider text-slate-400">
-                1º Turno (Base 2 cand.)
+                1º Turno (Oficial)
               </span>
               <strong className="font-mono text-xs text-slate-800 dark:text-slate-200">
-                {formatPct(locality.cand2_norm_1t)}
+                {formatPct(locality.cand2_pct_1t)}
               </strong>{' '}
               ({formatInt(locality.cand2_votes_1t)})
             </div>
@@ -235,15 +234,6 @@ export function LocalityDetailSheet({
           </strong>{' '}
           (diferença de {formatPct(locality.margin_1t_pp).replace('%', ' p.p.')})
         </span>
-        <a
-          href={locality.source_json_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-0.5 underline hover:text-slate-800 dark:hover:text-slate-200"
-        >
-          JSON bruto da localidade
-          <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-        </a>
       </div>
     </div>
   )

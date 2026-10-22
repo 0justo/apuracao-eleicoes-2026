@@ -5,14 +5,12 @@ import {
   ChevronRight,
   Info,
   Search,
-  SlidersHorizontal,
 } from 'lucide-react'
 import type { DisputeSnapshot, LocalityDataItem } from '../../types/election'
 import { StateFlag } from '../common/StateFlag'
 import { getDisputePairThemes } from '../../utils/candidatePalette'
 import {
   formatCompactNumber,
-  formatInt,
   formatPct,
   formatPP,
 } from '../../utils/formatters'
@@ -26,9 +24,8 @@ type SortByMode = 'remaining_votes' | 'pct_remaining'
 export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
   const [cand1, cand2] = snapshot.candidates
   const [theme1, theme2] = getDisputePairThemes(cand1, cand2)
-  const { pending_summary: pending, reference_scenario: refScenario } = snapshot
+  const { pending_summary: pending } = snapshot
 
-  const [activeTab, setActiveTab] = useState<'ranking' | 'reference'>('ranking')
   const [sortBy, setSortBy] = useState<SortByMode>('remaining_votes')
   const [searchQuery, setSearchQuery] = useState<string>('')
 
@@ -38,12 +35,6 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
     null,
   )
   const [loadingPresMun, setLoadingPresMun] = useState<boolean>(false)
-
-  // Permite inspecionar a aba "Cenário de referência" se habilitada pela feature flag
-  const [localRefFlagOverride, setLocalRefFlagOverride] = useState<boolean>(
-    refScenario.enabled,
-  )
-  const isRefTabAvailable = refScenario.enabled || localRefFlagOverride
 
   const handleDrillDownPresUf = async (ufCode: string) => {
     const ufLower = ufCode.toLowerCase()
@@ -158,37 +149,16 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
             </div>
           </div>
         </div>
-
-        {/* Controle de Feature Flag para a aba opcional Cenário de Referência */}
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-700 dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-300">
-            <input
-              type="checkbox"
-              data-testid="toggle-reference-scenario-flag"
-              checked={isRefTabAvailable}
-              onChange={(e) => {
-                const checked = e.target.checked
-                setLocalRefFlagOverride(checked)
-                if (!checked && activeTab === 'reference') {
-                  setActiveTab('ranking')
-                }
-              }}
-              className="rounded border-slate-300 accent-slate-900 dark:accent-white"
-            />
-            <SlidersHorizontal className="h-3 w-3" aria-hidden="true" />
-            <span className="hidden sm:inline">Cenário de referência</span>
-          </label>
-        </div>
       </div>
 
-      {/* 2. Barra Empilhada Compacta: Votos restantes onde Cand 1 vs Cand 2 liderou no 1ºT */}
+      {/* 2. Barra Empilhada Compacta: Votos restantes onde Cand 1 vs Cand 2 venceu no 1ºT */}
       <div
         data-testid="stacked-pending-bar-card"
         className="mt-3.5 shrink-0 rounded-xl border border-slate-200 bg-slate-50/80 p-3 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
       >
         <div className="flex flex-wrap items-center justify-between gap-1 text-xs">
           <span className="font-semibold text-slate-700 dark:text-slate-300">
-            Divisão por liderança no 1ºT:
+            Onde estão os votos que faltam?
           </span>
           <span className="font-bold text-slate-900 dark:text-white">
             Total est. restante:{' '}
@@ -222,27 +192,27 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
           )}
         </div>
 
-        <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-          <div className={`flex items-center justify-between rounded-lg border ${theme1.borderClass} ${theme1.cardBgClass} px-2 py-1`}>
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+          <div className={`flex items-center justify-between rounded-lg border ${theme1.borderClass} ${theme1.cardBgClass} px-2.5 py-1.5`}>
             <div className="flex items-center gap-1.5 truncate">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme1.barClass}`} />
               <span className="truncate font-medium text-slate-800 dark:text-slate-200">
-                {cand1.ballot_name}
+                Locais onde {cand1.ballot_name} venceu no 1ºT:
               </span>
             </div>
-            <strong className="shrink-0 font-bold text-slate-900 dark:text-white">
+            <strong className="shrink-0 font-bold text-slate-900 dark:text-white ml-1">
               {formatCompactNumber(pending.remaining_in_cand1_1t_lead)} ({formatPct(pending.pct_remaining_in_cand1_1t_lead, 0)})
             </strong>
           </div>
 
-          <div className={`flex items-center justify-between rounded-lg border ${theme2.borderClass} ${theme2.cardBgClass} px-2 py-1`}>
+          <div className={`flex items-center justify-between rounded-lg border ${theme2.borderClass} ${theme2.cardBgClass} px-2.5 py-1.5`}>
             <div className="flex items-center gap-1.5 truncate">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme2.barClass}`} />
               <span className="truncate font-medium text-slate-800 dark:text-slate-200">
-                {cand2.ballot_name}
+                Onde {cand2.ballot_name} venceu no 1ºT:
               </span>
             </div>
-            <strong className="shrink-0 font-bold text-slate-900 dark:text-white">
+            <strong className="shrink-0 font-bold text-slate-900 dark:text-white ml-1">
               {formatCompactNumber(pending.remaining_in_cand2_1t_lead)} ({formatPct(pending.pct_remaining_in_cand2_1t_lead, 0)})
             </strong>
           </div>
@@ -388,17 +358,14 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
 
               {/* Linha Intermediária: Apurado à esquerda vs Votos Pendentes à direita */}
               <div className="flex items-center justify-between gap-2 text-[11px] min-w-0">
-                <span className="truncate text-slate-500 dark:text-slate-400">
-                  Apurado:{' '}
+                <span className="truncate text-slate-600 dark:text-slate-400">
                   <strong className="font-mono text-slate-800 dark:text-slate-200">
-                    {formatPct(loc.pct_counted)}
-                  </strong>
-                  <span className="ml-1 text-[10px] text-slate-400 hidden sm:inline">
-                    ({formatInt(loc.counted_sections)}/{formatInt(loc.total_sections)})
-                  </span>
+                    {formatPct(loc.pct_counted, 1)}
+                  </strong>{' '}
+                  apurado
                 </span>
                 <span className="shrink-0 font-extrabold text-slate-900 dark:text-white">
-                  {formatCompactNumber(loc.estimated_remaining_valid_votes)} pendentes
+                  Faltam {formatCompactNumber(loc.estimated_remaining_valid_votes)} votos
                 </span>
               </div>
 

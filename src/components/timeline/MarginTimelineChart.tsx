@@ -17,7 +17,6 @@ import type {
 } from '../../types/election'
 import { getDisputePairThemes } from '../../utils/candidatePalette'
 import {
-  formatInt,
   formatPct,
   formatPP,
   formatSignedPP,
@@ -97,13 +96,23 @@ export function MarginTimelineChart({
   }
 
   // Escala vertical Y para o gráfico de ambos os candidatos (% válidos)
-  const allPcts = points.flatMap((p) => [p.cand1_pct, p.cand2_pct])
-  const minCandPct =
-    allPcts.length > 0 ? Math.max(0, Math.floor(Math.min(...allPcts) - 3)) : 35
-  const maxCandPct =
-    allPcts.length > 0
-      ? Math.min(100, Math.ceil(Math.max(...allPcts) + 3))
-      : 65
+  // Foca dinamicamente na faixa útil dos candidatos (ex: min 35% a max 65% quando ambos estiverem perto de 50%),
+  // evitando que as linhas fiquem esmagadas no topo do gráfico.
+  const validPcts = points
+    .flatMap((p) => [p.cand1_pct, p.cand2_pct])
+    .filter((v) => v > 0 && Number.isFinite(v))
+
+  const minObserved = validPcts.length > 0 ? Math.min(...validPcts) : 48
+  const maxObserved = validPcts.length > 0 ? Math.max(...validPcts) : 52
+
+  let minCandPct = Math.max(0, Math.floor(minObserved - 3))
+  let maxCandPct = Math.min(100, Math.ceil(maxObserved + 3))
+
+  if (maxCandPct - minCandPct < 30) {
+    const mid = (minCandPct + maxCandPct) / 2
+    minCandPct = Math.max(0, Math.round(mid - 15))
+    maxCandPct = Math.min(100, Math.round(mid + 15))
+  }
   const spanCandPct = Math.max(4, maxCandPct - minCandPct)
 
   const getYCandPct = (pct: number): number => {
@@ -471,11 +480,28 @@ export function MarginTimelineChart({
                     {formatPct(activePoint.cand2_pct)}
                   </strong>
                 </span>
-                <span className="rounded bg-slate-900 px-2 py-0.5 font-mono text-[11px] font-bold text-white dark:bg-white dark:text-slate-950">
-                  Margem ({cand1.ballot_name.split(' ')[0]} −{' '}
-                  {cand2.ballot_name.split(' ')[0]}):{' '}
-                  {formatSignedPP(activePoint.margin_cand1_minus_cand2_pp)}
-                </span>
+                {(() => {
+                  const diff = activePoint.margin_cand1_minus_cand2_pp
+                  if (diff > 0) {
+                    return (
+                      <span className={`rounded-md px-2 py-0.5 font-mono text-[11px] font-bold ${theme1.badgeClass}`}>
+                        Vantagem atual: {cand1.ballot_name.toUpperCase()} +{formatPP(diff)}
+                      </span>
+                    )
+                  }
+                  if (diff < 0) {
+                    return (
+                      <span className={`rounded-md px-2 py-0.5 font-mono text-[11px] font-bold ${theme2.badgeClass}`}>
+                        Vantagem atual: {cand2.ballot_name.toUpperCase()} +{formatPP(diff)}
+                      </span>
+                    )
+                  }
+                  return (
+                    <span className="rounded-md bg-slate-200 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                      Empate técnico
+                    </span>
+                  )
+                })()}
               </div>
             </div>
           )}
@@ -823,8 +849,7 @@ export function MarginTimelineChart({
               </span>
             )}
             <span>
-              Snapshots gravados nesta série: {formatInt(points.length)} · Maior
-              diferença registrada: {formatPP(maxAbsMargin)}
+              Maior diferença registrada: {formatPP(maxAbsMargin)}
             </span>
           </div>
         </div>

@@ -45,6 +45,25 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
         ? theme2
         : null
 
+  const remainingVotesEst =
+    snapshot.pending_summary?.total_remaining_valid_votes ??
+    snapshot.turnaround?.estimated_remaining_valid_votes_r ??
+    0
+  const remainingSections =
+    sections.remaining_sections ??
+    Math.max(0, sections.total_sections - sections.counted_sections)
+  const remainingSectionsPct = Math.max(0, 100 - sections.pct_counted)
+
+  const formatUrnasCount = (val: number): string => {
+    if (val >= 1_000_000) {
+      return `${(val / 1_000_000).toFixed(1).replace('.', ',')} mi`
+    }
+    if (val >= 1_000) {
+      return `${(val / 1_000).toFixed(1).replace('.', ',')} mil`
+    }
+    return formatInt(val)
+  }
+
   return (
     <section
       aria-label={`Placar oficial de votos apurados para ${snapshot.cargo_name} (${snapshot.uf_name})`}
@@ -304,13 +323,10 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
                 <ArrowLeftRight className="h-3.5 w-3.5" aria-hidden="true" />
               </div>
             </div>
-            <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+            <div className="mt-1">
               <strong className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {formatCompactNumber(voteDiff)}
+                {formatCompactNumber(voteDiff)} votos
               </strong>
-              <span className="font-mono text-[11px] text-slate-500 dark:text-slate-400">
-                ({formatPP(marginPP)})
-              </span>
             </div>
           </div>
 
@@ -319,7 +335,7 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
               <span
                 className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${leaderTheme.badgeClass}`}
               >
-                +{formatPP(marginPP)} para {leader.ballot_name.split(' ')[0]}
+                {leader.ballot_name} +{formatPP(marginPP)} na frente
               </span>
             ) : (
               <span className="font-mono text-[10px] font-semibold text-slate-400">
@@ -340,12 +356,12 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
                 <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
               </div>
             </div>
-            <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+            <div className="mt-1">
               <strong className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 {formatCompactNumber(votes.valid_votes)}
               </strong>
-              <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                ({formatPct(votes.pct_valid_votes, 1)})
+              <span className="mt-0.5 block font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Restam ~{formatCompactNumber(remainingVotesEst)} votos est.
               </span>
             </div>
           </div>
@@ -372,12 +388,12 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
                 <Users className="h-3.5 w-3.5" aria-hidden="true" />
               </div>
             </div>
-            <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+            <div className="mt-1">
               <strong className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
                 {formatPct(electorate.pct_turnout, 1)}
               </strong>
-              <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                (~{formatCompactNumber(electorate.turnout_votes)})
+              <span className="mt-0.5 block font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Abstenção: {formatPct(electorate.pct_abstention, 1)}
               </span>
             </div>
           </div>
@@ -404,12 +420,14 @@ export function NeutralScoreboard({ snapshot }: NeutralScoreboardProps) {
                 <Vote className="h-3.5 w-3.5" aria-hidden="true" />
               </div>
             </div>
-            <div className="mt-1 flex flex-wrap items-baseline gap-1.5">
+            <div className="mt-1">
               <strong className="font-mono text-xl sm:text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
-                {formatPct(sections.pct_counted, 1)}
+                {formatPct(sections.pct_counted, 1)} apuradas
               </strong>
-              <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                ({formatCompactNumber(sections.counted_sections)}/{formatCompactNumber(sections.total_sections)})
+              <span className="mt-0.5 block font-mono text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                {remainingSections > 0
+                  ? `Faltam ${formatUrnasCount(remainingSections)} urnas (${formatPct(remainingSectionsPct, 1)})`
+                  : '100% das urnas apuradas'}
               </span>
             </div>
           </div>

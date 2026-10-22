@@ -713,44 +713,46 @@ export function SwingMapSection({
           )}
         </div>
 
-        {/* Alternador de perspectiva de candidato */}
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
-          <span className="text-slate-500 dark:text-slate-400">
-            Perspectiva:
-          </span>
-          <button
-            type="button"
-            onClick={() => setPerspectiveSlot(1)}
-            aria-pressed={perspectiveSlot === 1}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
-              perspectiveSlot === 1
-                ? `${theme1.badgeClass} border-transparent shadow-2xs`
-                : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-            }`}
-          >
-            <span
-              className={`inline-block h-2.5 w-2.5 rounded-full ${theme1.dotClass} ring-1 ring-white/70`}
-              aria-hidden="true"
-            />
-            {cand1.ballot_name}
-          </button>
-          <button
-            type="button"
-            onClick={() => setPerspectiveSlot(2)}
-            aria-pressed={perspectiveSlot === 2}
-            className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
-              perspectiveSlot === 2
-                ? `${theme2.badgeClass} border-transparent shadow-2xs`
-                : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
-            }`}
-          >
-            <span
-              className={`inline-block h-2.5 w-2.5 rounded-full ${theme2.dotClass} ring-1 ring-white/70`}
-              aria-hidden="true"
-            />
-            {cand2.ballot_name}
-          </button>
-        </div>
+        {/* Alternador de perspectiva de candidato (exibido apenas no modo de variação vs. 1º Turno) */}
+        {metricMode === 'swing_1t' && (
+          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="text-slate-500 dark:text-slate-400">
+              Perspectiva:
+            </span>
+            <button
+              type="button"
+              onClick={() => setPerspectiveSlot(1)}
+              aria-pressed={perspectiveSlot === 1}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                perspectiveSlot === 1
+                  ? `${theme1.badgeClass} border-transparent shadow-2xs`
+                  : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-2.5 w-2.5 rounded-full ${theme1.dotClass} ring-1 ring-white/70`}
+                aria-hidden="true"
+              />
+              {cand1.ballot_name}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPerspectiveSlot(2)}
+              aria-pressed={perspectiveSlot === 2}
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold transition ${
+                perspectiveSlot === 2
+                  ? `${theme2.badgeClass} border-transparent shadow-2xs`
+                  : 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+              }`}
+            >
+              <span
+                className={`inline-block h-2.5 w-2.5 rounded-full ${theme2.dotClass} ring-1 ring-white/70`}
+                aria-hidden="true"
+              />
+              {cand2.ballot_name}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Destaque breve do local que mais mudou no último ciclo */}
@@ -914,11 +916,7 @@ export function SwingMapSection({
               className="low-reliability-hatch inline-block h-3 w-5 rounded-xs border border-dashed border-slate-400 bg-slate-200 dark:bg-slate-700"
               aria-hidden="true"
             />
-            Hachura / tracejado: local com{' '}
-            <strong>&lt;30% das urnas apuradas</strong> (baixa confiabilidade)
-          </span>
-          <span>
-            Malha oficial IBGE · Transição suave (420 ms) a cada ciclo
+            Locais tracejados indicam início de apuração (&lt;30% das urnas) • Fonte: Malha IBGE / TSE
           </span>
         </div>
       </div>

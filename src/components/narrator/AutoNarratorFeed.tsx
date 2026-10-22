@@ -195,7 +195,7 @@ export function AutoNarratorFeed({
             </div>
 
             <span className="rounded-full border border-emerald-500/30 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-              Ticker
+              Resumo ao Vivo
             </span>
           </div>
         </div>
