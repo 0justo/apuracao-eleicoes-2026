@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +25,20 @@ def _env_int(name: str, default: int) -> int:
         return int(val.strip())
     except ValueError:
         return default
+
+
+def _parse_cors_origins(val: str | None, default: list[str]) -> list[str]:
+    if not val:
+        return default
+    cleaned = val.strip()
+    if cleaned.startswith("[") and cleaned.endswith("]"):
+        try:
+            parsed = json.loads(cleaned)
+            if isinstance(parsed, list):
+                return [str(x).strip() for x in parsed if str(x).strip()]
+        except Exception:
+            pass
+    return [origin.strip() for origin in cleaned.split(",") if origin.strip()]
 
 
 @dataclass
@@ -94,14 +109,23 @@ class Settings:
 
     # Segurança, CORS e Rate Limit da API
     cors_origins: list[str] = field(
-        default_factory=lambda: [
-            origin.strip()
-            for origin in os.getenv(
-                "CORS_ORIGINS",
-                "http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000",
-            ).split(",")
-            if origin.strip()
-        ]
+        default_factory=lambda: _parse_cors_origins(
+            os.getenv("CORS_ORIGINS"),
+            [
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "http://localhost:8000",
+                "http://127.0.0.1:8000",
+            ],
+        )
+    )
+    cors_origin_regex: str = field(
+        default_factory=lambda: os.getenv(
+            "CORS_ORIGIN_REGEX",
+            r"^https:\/\/.*\.vercel\.app$",
+        ).strip()
     )
     rate_limit_requests_per_minute: int = field(
         default_factory=lambda: _env_int("RATE_LIMIT_RPM", 240)

@@ -140,4 +140,13 @@ async def test_full_2026_pipeline_0_to_100_and_api(tmp_path: Path) -> None:
         assert r_rep.status_code == 200
         assert r_rep.json()["total_frames"] == 21
 
+        # Testa headers de CORS para domínios Vercel e Localhost
+        r_vercel = await ac.get("/health", headers={"Origin": "https://apuracao-eleicoes-2026.vercel.app"})
+        assert r_vercel.status_code == 200
+        assert r_vercel.headers.get("access-control-allow-origin") == "https://apuracao-eleicoes-2026.vercel.app"
+
+        r_local = await ac.get("/health", headers={"Origin": "http://localhost:3000"})
+        assert r_local.status_code == 200
+        assert r_local.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
     await core.client.close()

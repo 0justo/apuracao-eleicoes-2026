@@ -28,6 +28,7 @@ COPY backend ./backend
 COPY public/snapshots ./public/snapshots
 COPY public/avatars ./public/avatars
 COPY public/geo ./public/geo
+COPY public/flags ./public/flags
 
 # Cria diretório de dados SQLite persistente
 RUN mkdir -p /app/backend/data
@@ -35,6 +36,6 @@ RUN mkdir -p /app/backend/data
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
-    CMD curl -fsS http://127.0.0.1:${PORT}/health || exit 1
+    CMD curl -fsS http://127.0.0.1:${PORT:-8000}/health || exit 1
 
 CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]

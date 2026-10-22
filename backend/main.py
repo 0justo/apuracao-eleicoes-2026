@@ -79,14 +79,20 @@ def create_app(custom_settings: Settings | None = None, start_poller: bool = Tru
     )
     app.state.core = state
 
-    # CORS restrito aos domínios autorizados
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=state.settings.cors_origins,
-        allow_credentials=False,
-        allow_methods=["GET", "HEAD", "OPTIONS"],
-        allow_headers=["*"],
-    )
+    # CORS restrito aos domínios autorizados e deployments da Vercel (*.vercel.app)
+    cors_kwargs: dict[str, Any] = {
+        "allow_credentials": False,
+        "allow_methods": ["GET", "HEAD", "OPTIONS"],
+        "allow_headers": ["*"],
+    }
+    if "*" in state.settings.cors_origins:
+        cors_kwargs["allow_origins"] = ["*"]
+    else:
+        cors_kwargs["allow_origins"] = state.settings.cors_origins
+        if state.settings.cors_origin_regex:
+            cors_kwargs["allow_origin_regex"] = state.settings.cors_origin_regex
+
+    app.add_middleware(CORSMiddleware, **cors_kwargs)
 
     # Compressão GZip padrão (além de suporte Brotli em endpoints JSON pesados)
     app.add_middleware(GZipMiddleware, minimum_size=512)
