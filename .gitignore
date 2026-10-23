@@ -36,6 +36,9 @@ test-results/
 .env.local
 .env.*.local
 
+# Certificado de origem do Cloudflare (chave privada) usado pelo Caddy na VM
+deploy/certs/
+
 # Logs
 logs/
 *.log
