@@ -14,6 +14,8 @@ import type { NarratorMessage } from '../../types/election'
 interface AutoNarratorFeedProps {
   messages: NarratorMessage[]
   enabled: boolean
+  /** Nomes de urna dos DOIS candidatos da disputa exibida (destaque simétrico). */
+  highlightNames?: string[]
   snapshotUpdatedAtHms?: string
 }
 
@@ -86,22 +88,34 @@ const CATEGORY_META: Record<NarratorMessage['category'], CategoryConfig> = {
  * Remove qualquer menção residual a estimativas entre parênteses
  * e destaca termos-chave (números, porcentagens, pontos percentuais e nomes de candidatos).
  */
-function renderCleanTickerContent(rawText: string) {
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function renderCleanTickerContent(rawText: string, highlightNames: string[]) {
   // Limpa explicitamente o texto residual entre parênteses
   const sanitized = rawText
     .replace(/\s*\(Estimativa do site, não é resultado oficial\)\.?\s*/gi, '')
     .trim()
 
-  // Regex para capturar porcentagens (ex: 50,4%), números formatados (ex: 1.450.000), p.p. e nomes
-  const parts = sanitized.split(
-    /(\b\d{1,3}(?:\.\d{3})*(?:,\d+)?%?|\b[+-]?\d+(?:,\d+)?\s?p\.p\.|\bLula\b|\bFlávio Bolsonaro\b|\bTarcísio\b|\bPT\b|\bPL\b|\bTSE\b)/gi,
+  // Antes: lista fixa "Lula|Flávio Bolsonaro|Tarcísio". O TSE grava "FLAVIO BOLSONARO" sem
+  // acento, então só um dos dois candidatos ficava em negrito. Agora destaca os dois nomes
+  // reais da disputa (inclusive Governadores).
+  const names = highlightNames.filter(Boolean).map(escapeRegExp)
+  const namePattern = names.length ? `|${names.join('|')}` : ''
+  const splitter = new RegExp(
+    `(\\b\\d{1,3}(?:\\.\\d{3})*(?:,\\d+)?%?|\\b[+-]?\\d+(?:,\\d+)?\\s?p\\.p\\.|\\bTSE\\b${namePattern})`,
+    'gi',
   )
+  const nameSet = new Set(highlightNames.map((n) => n.toLowerCase()))
+  const parts = sanitized.split(splitter)
 
   return parts.map((part, i) => {
     if (
       /^\d{1,3}(?:\.\d{3})*(?:,\d+)?%?$/i.test(part) ||
       /^[+-]?\d+(?:,\d+)?\s?p\.p\.$/i.test(part) ||
-      /^(?:Lula|Flávio Bolsonaro|Tarcísio|PT|PL|TSE)$/i.test(part)
+      /^TSE$/i.test(part) ||
+      nameSet.has(part.toLowerCase())
     ) {
       return (
         <strong
@@ -119,6 +133,7 @@ function renderCleanTickerContent(rawText: string) {
 export function AutoNarratorFeed({
   messages,
   enabled,
+  highlightNames = [],
   snapshotUpdatedAtHms,
 }: AutoNarratorFeedProps) {
   const [selectedCategory, setSelectedCategory] = useState<
@@ -298,7 +313,7 @@ export function AutoNarratorFeed({
 
               {/* Texto enxuto em no máximo 2 linhas com destaques em negrito e sem aviso residual */}
               <p className="line-clamp-2 text-xs font-medium leading-snug text-slate-700 dark:text-slate-300">
-                {renderCleanTickerContent(msg.text)}
+                {renderCleanTickerContent(msg.text, highlightNames)}
               </p>
             </li>
           )

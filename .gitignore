@@ -16,6 +16,15 @@ __pycache__/
 *$py.class
 *.sqlite-wal
 *.sqlite-shm
+*.sqlite
+*.db
+
+# Saída do poller (gerada em runtime; nunca versionar — o repositório tinha dados simulados aqui)
+public/snapshots/catalog.json
+public/snapshots/status.json
+public/snapshots/load_test_report.json
+public/snapshots/presidente/
+public/snapshots/governador-*/
 
 # Testing & Cache
 .pytest_cache/

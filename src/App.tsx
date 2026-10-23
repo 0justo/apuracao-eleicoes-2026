@@ -23,6 +23,7 @@ import {
 } from './hooks/useElectionSnapshot'
 import { useTheme } from './hooks/useTheme'
 import { formatPct } from './utils/formatters'
+import { SIMULATION_ENABLED } from './utils/flags'
 
 type ActiveView = 'apuracao' | 'metodologia' | 'status'
 
@@ -43,8 +44,11 @@ function parseInitialRoute(): {
     '88pct',
     '100pct',
   ]
+  // Em produção, ?stage=100pct é ignorado: impede prints de resultado fictício com "Fonte: TSE".
   const stage: SimulationStage =
-    stageParam && validStages.includes(stageParam) ? stageParam : 'live'
+    SIMULATION_ENABLED && stageParam && validStages.includes(stageParam)
+      ? stageParam
+      : 'live'
 
   if (path === '/metodologia') {
     return { disputeId: 'presidente', view: 'metodologia', stage }
@@ -167,6 +171,7 @@ export function App() {
 
   const handleChangeStage = useCallback(
     (newStage: SimulationStage) => {
+      if (!SIMULATION_ENABLED && newStage !== 'live') return
       setStage(newStage)
       const routePath =
         selectedDisputeId === 'presidente'
@@ -202,6 +207,7 @@ export function App() {
       {/* 1. Aviso Fixo Obrigatório no Topo */}
       <FixedOfficialBanner
         snapshot={snapshot}
+        isSimulation={stage !== 'live' && !isReplayMode}
         isStale={isStale}
         snapshotAgeSeconds={snapshotAgeSeconds}
         fetchError={fetchError}
@@ -358,6 +364,7 @@ export function App() {
                 <div className="order-2 lg:order-none">
                   <AutoNarratorFeed
                     messages={snapshot.narrator_messages}
+                    highlightNames={snapshot.candidates.map((c) => c.ballot_name)}
                     enabled={catalog?.feature_flags?.narrator !== false}
                     snapshotUpdatedAtHms={snapshot.generated_at_hms}
                   />

@@ -197,7 +197,7 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
             <div className="flex items-center gap-1.5 truncate">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme1.barClass}`} />
               <span className="truncate font-medium text-slate-800 dark:text-slate-200">
-                Locais onde {cand1.ballot_name} venceu no 1ºT:
+                Onde {cand1.ballot_name} liderou no 1ºT:
               </span>
             </div>
             <strong className="shrink-0 font-bold text-slate-900 dark:text-white ml-1">
@@ -209,7 +209,7 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
             <div className="flex items-center gap-1.5 truncate">
               <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme2.barClass}`} />
               <span className="truncate font-medium text-slate-800 dark:text-slate-200">
-                Onde {cand2.ballot_name} venceu no 1ºT:
+                Onde {cand2.ballot_name} liderou no 1ºT:
               </span>
             </div>
             <strong className="shrink-0 font-bold text-slate-900 dark:text-white ml-1">
