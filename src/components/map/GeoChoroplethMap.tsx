@@ -81,7 +81,7 @@ export function GeoChoroplethMap({
   const [hoveredLoc, setHoveredLoc] = useState<LocalityDataItem | null>(null)
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
 
-  // Rastreamento de gestos táteis e arrasto livre (drag/pan)
+  // Rastreamento de gestos táteis cooperativos e arrasto livre (drag/pan)
   const isDraggingRef = useRef<boolean>(false)
   const dragStartRef = useRef<{ clientX: number; clientY: number; panX: number; panY: number }>({
     clientX: 0,
@@ -90,9 +90,34 @@ export function GeoChoroplethMap({
     panY: 0,
   })
   const dragDistanceRef = useRef<number>(0)
-  const activePointersRef = useRef<Map<number, { x: number; y: number }>>(new Map())
+  const activePointersRef = useRef<Map<number, { x: number; y: number; type: string }>>(new Map())
   const pinchStartDistRef = useRef<number>(0)
   const pinchStartScaleRef = useRef<number>(1)
+  const [showTwoFingerToast, setShowTwoFingerToast] = useState<boolean>(false)
+  const toastTimeoutRef = useRef<number | null>(null)
+
+  const showTwoFingerHint = useCallback(() => {
+    setShowTwoFingerToast(true)
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setShowTwoFingerToast(false)
+      toastTimeoutRef.current = null
+    }, 1500)
+  }, [])
+
+  const hideTwoFingerHint = useCallback(() => {
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current)
+      toastTimeoutRef.current = null
+    }
+    setShowTwoFingerToast(false)
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current)
+    }
+  }, [])
 
   const localityMap = useMemo(() => {
     const m = new Map<string, LocalityDataItem>()
@@ -236,14 +261,18 @@ export function GeoChoroplethMap({
     }
   }, [])
 
-  // Gestores de Pointer para arrasto livre (pan) e gestos de pinça (pinch zoom)
+  // Gestores de Pointer cooperativos: 1 dedo rola a página, 2 dedos arrastam/pinçam o mapa
   const handlePointerDown = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
-      if (e.button !== 0) return
-      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      if (e.button !== 0 && e.pointerType === 'mouse') return
+      activePointersRef.current.set(e.pointerId, {
+        x: e.clientX,
+        y: e.clientY,
+        type: e.pointerType,
+      })
       dragDistanceRef.current = 0
 
-      if (activePointersRef.current.size === 1) {
+      if (e.pointerType === 'mouse') {
         isDraggingRef.current = true
         dragStartRef.current = {
           clientX: e.clientX,
@@ -251,34 +280,92 @@ export function GeoChoroplethMap({
           panX: pan.x,
           panY: pan.y,
         }
-      } else if (activePointersRef.current.size === 2) {
-        // Inicializa pinça
-        const pts = Array.from(activePointersRef.current.values())
-        pinchStartDistRef.current = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
-        pinchStartScaleRef.current = scale
+      } else {
+        // Toque tátil (celular / tablet)
+        if (activePointersRef.current.size === 1) {
+          // 1 dedo: NÃO arrasta o mapa (deixa o navegador rolar a página verticalmente)
+          dragStartRef.current = {
+            clientX: e.clientX,
+            clientY: e.clientY,
+            panX: pan.x,
+            panY: pan.y,
+          }
+          isDraggingRef.current = false
+        } else if (activePointersRef.current.size === 2) {
+          // 2 dedos: ativa arrasto e pinça cooperativos
+          hideTwoFingerHint()
+          isDraggingRef.current = true
+          const pts = Array.from(activePointersRef.current.values())
+          pinchStartDistRef.current = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+          pinchStartScaleRef.current = scale
+          const midX = (pts[0].x + pts[1].x) / 2
+          const midY = (pts[0].y + pts[1].y) / 2
+          dragStartRef.current = {
+            clientX: midX,
+            clientY: midY,
+            panX: pan.x,
+            panY: pan.y,
+          }
+        }
       }
     },
-    [pan, scale],
+    [pan, scale, hideTwoFingerHint],
   )
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
       if (!activePointersRef.current.has(e.pointerId)) return
-      activePointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const prev = activePointersRef.current.get(e.pointerId)!
+      activePointersRef.current.set(e.pointerId, {
+        x: e.clientX,
+        y: e.clientY,
+        type: prev.type,
+      })
 
-      // Pinch zoom de 2 dedos
-      if (activePointersRef.current.size === 2 && pinchStartDistRef.current > 0) {
-        const pts = Array.from(activePointersRef.current.values())
-        const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
-        const factor = currentDist / pinchStartDistRef.current
-        const nextScale = Math.min(8, Math.max(1, pinchStartScaleRef.current * factor))
-        setScale(nextScale)
-        dragDistanceRef.current = 20
-        return
+      const isTouch = prev.type === 'touch'
+
+      if (isTouch) {
+        if (activePointersRef.current.size === 1) {
+          // 1 dedo: detecta se o usuário está tentando arrastar o mapa e mostra aviso de 2 dedos
+          const dx = e.clientX - dragStartRef.current.clientX
+          const dy = e.clientY - dragStartRef.current.clientY
+          const dist = Math.hypot(dx, dy)
+          dragDistanceRef.current = dist
+          if (dist > 18) {
+            showTwoFingerHint()
+          }
+          return
+        } else if (activePointersRef.current.size === 2) {
+          // 2 dedos: pinch-to-zoom + pan simultâneos
+          const pts = Array.from(activePointersRef.current.values())
+          const currentDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)
+          if (pinchStartDistRef.current > 0) {
+            const factor = currentDist / pinchStartDistRef.current
+            const nextScale = Math.min(8, Math.max(1, pinchStartScaleRef.current * factor))
+            setScale(nextScale)
+          }
+
+          const midX = (pts[0].x + pts[1].x) / 2
+          const midY = (pts[0].y + pts[1].y) / 2
+          const dx = midX - dragStartRef.current.clientX
+          const dy = midY - dragStartRef.current.clientY
+
+          const container = containerRef.current
+          const rect = container?.getBoundingClientRect()
+          const ratioX = rect ? MAP_WIDTH / (rect.width * scale) : 1
+          const ratioY = rect ? MAP_HEIGHT / (rect.height * scale) : 1
+
+          setPan({
+            x: dragStartRef.current.panX - dx * ratioX,
+            y: dragStartRef.current.panY - dy * ratioY,
+          })
+          dragDistanceRef.current = 20
+          return
+        }
       }
 
-      // Arrasto livre (pan) de 1 dedo / mouse
-      if (isDraggingRef.current) {
+      // Arrasto livre (pan) com mouse no computador
+      if (isDraggingRef.current && !isTouch) {
         const dx = e.clientX - dragStartRef.current.clientX
         const dy = e.clientY - dragStartRef.current.clientY
         const dist = Math.hypot(dx, dy)
@@ -306,7 +393,7 @@ export function GeoChoroplethMap({
         })
       }
     },
-    [scale],
+    [scale, showTwoFingerHint],
   )
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -423,9 +510,6 @@ export function GeoChoroplethMap({
           const loc = findLocalityForFeature(feat)
           if (loc) {
             onSelectLocality(loc)
-            if (scope === 'uf' && loc.uf !== 'ZZ' && onZoomToUf) {
-              onZoomToUf(loc.uf)
-            }
           }
           return
         }
@@ -500,10 +584,23 @@ export function GeoChoroplethMap({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onPointerLeave={() => setHoveredLoc(null)}
-      className="relative mx-auto w-full overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100/40 select-none touch-none dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+      className="relative mx-auto w-full max-h-[60vh] sm:max-h-[70vh] lg:max-h-[75vh] overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100/40 select-none touch-pan-y dark:border-[#1F1F24] dark:bg-[#0F0F12] flex items-center justify-center"
       style={{ cursor: isDraggingRef.current ? 'grabbing' : 'grab' }}
     >
-      {/* Botões Flutuantes e Discretos de Zoom e Pan no Canto do Mapa */}
+      {/* Aviso discreto sobre o mapa no celular se tentar arrastar com 1 dedo */}
+      {showTwoFingerToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none absolute inset-0 z-40 flex items-center justify-center bg-black/40 backdrop-blur-2xs transition-opacity duration-200"
+        >
+          <div className="rounded-xl border border-white/20 bg-slate-950/95 px-4 py-2.5 text-center text-xs font-semibold text-white shadow-2xl">
+            Use dois dedos para mover o mapa
+          </div>
+        </div>
+      )}
+
+      {/* Botões Flutuantes e Discretos de Zoom e Pan no Canto do Mapa (Área mínima de 44x44px no mobile) */}
       <div
         data-testid="map-zoom-controls"
         className="absolute bottom-3 right-3 z-30 flex flex-col gap-1 rounded-xl border border-white/15 bg-[#050505]/90 p-1 shadow-2xl backdrop-blur-md"
@@ -514,7 +611,7 @@ export function GeoChoroplethMap({
           onClick={handleZoomIn}
           aria-label="Aumentar zoom"
           title="Aumentar zoom (+)"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition"
+          className="flex h-11 w-11 sm:h-8 sm:w-8 min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px] items-center justify-center rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition"
         >
           <Plus className="h-4 w-4" />
         </button>
@@ -524,7 +621,7 @@ export function GeoChoroplethMap({
           onClick={handleZoomOut}
           aria-label="Diminuir zoom"
           title="Diminuir zoom (-)"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition"
+          className="flex h-11 w-11 sm:h-8 sm:w-8 min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px] items-center justify-center rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition"
         >
           <Minus className="h-4 w-4" />
         </button>
@@ -534,7 +631,7 @@ export function GeoChoroplethMap({
           onClick={handleResetZoom}
           aria-label="Resetar enquadramento do Brasil"
           title="Resetar enquadramento (⟲)"
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition"
+          className="flex h-11 w-11 sm:h-8 sm:w-8 min-h-[44px] min-w-[44px] sm:min-h-[32px] sm:min-w-[32px] items-center justify-center rounded-lg text-white hover:bg-white/15 active:bg-white/25 transition"
         >
           <RotateCcw className="h-3.5 w-3.5" />
         </button>
@@ -667,7 +764,7 @@ export function GeoChoroplethMap({
               ? 'Mapa geográfico oficial do IBGE por Unidade da Federação'
               : 'Mapa geográfico oficial do IBGE por município'
           }
-          className="h-auto w-full select-none"
+          className="max-h-[60vh] sm:max-h-[70vh] lg:max-h-[75vh] w-auto h-auto select-none object-contain"
         >
           <defs>
             <pattern
@@ -702,6 +799,7 @@ export function GeoChoroplethMap({
                 (highlightedCode === loc.code_tse ||
                   (scope === 'uf' && highlightedCode === loc.uf) ||
                   loc.changed_in_last_cycle)
+              const hasRecentChange = Boolean(loc?.changed_in_last_cycle)
               const codeAttr =
                 scope === 'uf'
                   ? String(feat.properties.uf ?? feat.id)
@@ -715,9 +813,11 @@ export function GeoChoroplethMap({
                     if (dragDistanceRef.current > 6) return
                     if (loc) {
                       onSelectLocality(loc)
-                      if (scope === 'uf' && loc.uf !== 'ZZ' && onZoomToUf) {
-                        onZoomToUf(loc.uf)
-                      }
+                    }
+                  }}
+                  onDoubleClick={() => {
+                    if (scope === 'uf' && loc && loc.uf !== 'ZZ' && onZoomToUf) {
+                      onZoomToUf(loc.uf)
                     }
                   }}
                   onPointerEnter={() => setHoveredLoc(loc ?? null)}
@@ -732,26 +832,33 @@ export function GeoChoroplethMap({
                         ? isDark
                           ? '#ffffff'
                           : '#0f172a'
-                        : isHighlighted
+                        : hasRecentChange
                           ? '#f59e0b'
-                          : isDark
-                            ? '#0f172a'
-                            : '#ffffff'
+                          : isHighlighted
+                            ? '#f59e0b'
+                            : isDark
+                              ? '#0f172a'
+                              : '#ffffff'
                     }
                     strokeWidth={
                       (isSelected
                         ? 2.4
-                        : isHighlighted
-                          ? 1.8
-                          : scope === 'uf'
-                            ? 1.05
-                            : 0.55) / Math.pow(viewBox.scale, 0.65)
+                        : hasRecentChange
+                          ? 2.2
+                          : isHighlighted
+                            ? 1.8
+                            : scope === 'uf'
+                              ? 1.05
+                              : 0.55) / Math.pow(viewBox.scale, 0.65)
                     }
                     style={{
                       transition:
                         'fill 420ms cubic-bezier(0.22, 1, 0.36, 1), stroke-width 180ms ease',
+                      filter: hasRecentChange
+                        ? 'drop-shadow(0 0 6px rgba(245, 158, 11, 0.85))'
+                        : undefined,
                     }}
-                    className="hover:brightness-110"
+                    className={`hover:brightness-110 ${hasRecentChange ? 'animate-pulse' : ''}`}
                   />
 
                   {loc?.low_reliability && (

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ExternalLink,
   History,
   Pause,
   Play,
   RotateCcw,
+  X,
 } from 'lucide-react'
 import { CountdownPre17h } from './components/layout/CountdownPre17h'
 import { DisputeSelector } from './components/layout/DisputeSelector'
@@ -13,8 +14,10 @@ import { SwingMapSection } from './components/map/SwingMapSection'
 import { AutoNarratorFeed } from './components/narrator/AutoNarratorFeed'
 import { MethodologyPage } from './components/pages/MethodologyPage'
 import { StatusPage } from './components/pages/StatusPage'
+import { RegionBreakdownCard } from './components/pending/RegionBreakdownCard'
 import { WhereVotesRemain } from './components/pending/WhereVotesRemain'
 import { NeutralScoreboard } from './components/scoreboard/NeutralScoreboard'
+import { StickyCompactScoreboard } from './components/scoreboard/StickyCompactScoreboard'
 import { MarginTimelineChart } from './components/timeline/MarginTimelineChart'
 import { TurnaroundCalculator } from './components/turnaround/TurnaroundCalculator'
 import {
@@ -71,6 +74,17 @@ export function App() {
   const [activeView, setActiveView] = useState<ActiveView>(initial.view)
   const [stage, setStage] = useState<SimulationStage>(initial.stage)
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false)
+  const [isTimelineModalOpen, setIsTimelineModalOpen] = useState<boolean>(false)
+  const [isCompactScoreboardVisible, setIsCompactScoreboardVisible] =
+    useState<boolean>(false)
+  const [scrollProgress, setScrollProgress] = useState<number>(0)
+  const scoreboardRef = useRef<HTMLElement | null>(null)
+  const currentProgressRef = useRef<number>(0)
+  const targetProgressRef = useRef<number>(0)
+  const rafIdRef = useRef<number | null>(null)
+  const [prefersReducedMotion, setPrefersReducedMotion] =
+    useState<boolean>(false)
+  const scoreboardSentinelRef = useRef<HTMLDivElement | null>(null)
   const { theme, toggleTheme } = useTheme()
 
   const {
@@ -92,6 +106,96 @@ export function App() {
     startReplay2022,
     stopReplay2022,
   } = useElectionSnapshot(selectedDisputeId, stage)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    setPrefersReducedMotion(mq.matches)
+    const handler = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isTimelineModalOpen) {
+        setIsTimelineModalOpen(false)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isTimelineModalOpen])
+
+  // Transição contínua entre o placar grande e a barra fixa baseada em rAF e scroll progress
+  const updateScrollProgress = useCallback(() => {
+    if (activeView !== 'apuracao' || !scoreboardRef.current) {
+      if (currentProgressRef.current !== 0 || targetProgressRef.current !== 0) {
+        currentProgressRef.current = 0
+        targetProgressRef.current = 0
+        setScrollProgress(0)
+        setIsCompactScoreboardVisible(false)
+      }
+      return
+    }
+
+    const rect = scoreboardRef.current.getBoundingClientRect()
+    // Inicia a transição nos últimos 160px antes do placar sair da tela (abaixo da barra oficial de 40px)
+    const TRANSITION_ZONE = 160
+    const bannerBottom = 40
+    const p = Math.max(
+      0,
+      Math.min(
+        1,
+        (bannerBottom + TRANSITION_ZONE - rect.bottom) / TRANSITION_ZONE,
+      ),
+    )
+    targetProgressRef.current = p
+
+    if (prefersReducedMotion) {
+      const active = p >= 0.5
+      currentProgressRef.current = active ? 1 : 0
+      setScrollProgress(active ? 1 : 0)
+      setIsCompactScoreboardVisible(active)
+      return
+    }
+
+    if (rafIdRef.current === null) {
+      const animate = () => {
+        const target = targetProgressRef.current
+        const current = currentProgressRef.current
+        const diff = target - current
+
+        if (Math.abs(diff) < 0.005) {
+          currentProgressRef.current = target
+          setScrollProgress(target)
+          setIsCompactScoreboardVisible(target > 0)
+          rafIdRef.current = null
+          return
+        }
+
+        const next = current + diff * 0.28
+        currentProgressRef.current = next
+        setScrollProgress(next)
+        setIsCompactScoreboardVisible(next > 0)
+        rafIdRef.current = requestAnimationFrame(animate)
+      }
+      rafIdRef.current = requestAnimationFrame(animate)
+    }
+  }, [activeView, prefersReducedMotion])
+
+  useEffect(() => {
+    window.addEventListener('scroll', updateScrollProgress, { passive: true })
+    window.addEventListener('resize', updateScrollProgress)
+    updateScrollProgress()
+    return () => {
+      window.removeEventListener('scroll', updateScrollProgress)
+      window.removeEventListener('resize', updateScrollProgress)
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current)
+        rafIdRef.current = null
+      }
+    }
+  }, [updateScrollProgress])
 
   // Sincroniza histórico de navegação (popstate)
   useEffect(() => {
@@ -210,6 +314,16 @@ export function App() {
         }}
         onStopReplay={stopReplay2022}
       />
+
+      {/* Mini Placar Fixo no Topo + Lex Flutuante (quando o placar grande sai da tela) */}
+      {snapshot && activeView === 'apuracao' && (
+        <StickyCompactScoreboard
+          snapshot={snapshot}
+          isVisible={isCompactScoreboardVisible}
+          progress={scrollProgress}
+          prefersReducedMotion={prefersReducedMotion}
+        />
+      )}
 
       {/* 2. Cabeçalho e Seletor de Disputa */}
       <DisputeSelector
@@ -344,46 +458,42 @@ export function App() {
             )}
 
             {/* PLACAR PRINCIPAL NO TOPO: NeutralScoreboard */}
-            <NeutralScoreboard snapshot={snapshot} />
+            <NeutralScoreboard
+              snapshot={snapshot}
+              scoreboardRef={scoreboardRef}
+            />
 
-            {/* NOVO GRID PRINCIPAL DE 3 COLUNAS NO DESKTOP (lg:grid-cols-12 gap-5 items-start) */}
-            <div className="grid grid-cols-1 gap-5 lg:grid-cols-12 lg:items-start">
-              {/* COLUNA ESQUERDA (lg:col-span-4 xl:col-span-3):
-                  a) Calculadora da Virada limpa e em destaque
-                  b) Lex em formato compacto com scroll */}
-              <div className="contents lg:col-span-4 xl:col-span-3 lg:flex lg:flex-col lg:gap-5">
-                <div className="order-1 lg:order-none">
+            {/* Sentinela invisível para acionar o mini placar fixo sem placeholder ou layout shift */}
+            <div
+              ref={scoreboardSentinelRef}
+              className="h-px w-full pointer-events-none"
+              aria-hidden="true"
+            />
+
+            {/* FAIXA AO VIVO DO LEX: Logo abaixo do placar */}
+            <AutoNarratorFeed
+              messages={snapshot.narrator_messages}
+              enabled={catalog?.feature_flags?.narrator !== false}
+              snapshotUpdatedAtHms={snapshot.generated_at_hms}
+            />
+
+            {/* GRID PRINCIPAL:
+                - Desktop (min-[1100px]): 3 colunas (Calculadora + Linha do tempo na esq., Mapa no centro, Onde falta contar + Por Região na dir.)
+                - Abaixo de 1100px: Sequência linear ordenada estritamente:
+                  1. Placar grande (NeutralScoreboard acima)
+                  2. Lex (AutoNarratorFeed acima)
+                  3. Calculadora da Virada (order-1)
+                  4. Mapa (order-2)
+                  5. Onde ainda falta contar (order-3)
+                  6. Por região (order-4)
+                  7. Linha do tempo (order-5) */}
+            <div className="flex flex-col gap-4 sm:gap-6 min-[1100px]:grid min-[1100px]:grid-cols-12 min-[1100px]:items-start min-[1100px]:gap-6">
+              {/* COLUNA ESQUERDA */}
+              <div className="contents min-[1100px]:block min-[1100px]:col-span-3 min-[1100px]:sticky min-[1100px]:top-[68px] min-[1100px]:space-y-4">
+                <div className="order-1 min-[1100px]:order-none">
                   <TurnaroundCalculator snapshot={snapshot} />
                 </div>
-                <div className="order-2 lg:order-none">
-                  <AutoNarratorFeed
-                    messages={snapshot.narrator_messages}
-                    enabled={catalog?.feature_flags?.narrator !== false}
-                    snapshotUpdatedAtHms={snapshot.generated_at_hms}
-                  />
-                </div>
-              </div>
-
-              {/* COLUNA CENTRAL (lg:col-span-4 xl:col-span-6 — Destaque Cartográfico):
-                  a) Mapa de Apuração ao Vivo / Variação */}
-              <div className="contents lg:col-span-4 xl:col-span-6 lg:flex lg:flex-col lg:gap-5">
-                <div className="order-3 lg:order-none">
-                  <SwingMapSection
-                    snapshot={snapshot}
-                    stage={stage}
-                    isDark={theme === 'dark'}
-                  />
-                </div>
-              </div>
-
-              {/* COLUNA DIREITA (lg:col-span-4 xl:col-span-3 — Simetria com a Coluna Esquerda):
-                  a) Onde Ainda Falta Contar (com scroll interno)
-                  b) Linha do Tempo da Apuração & Replay 2022 */}
-              <div className="contents lg:col-span-4 xl:col-span-3 lg:flex lg:flex-col lg:gap-5">
-                <div className="order-4 lg:order-none">
-                  <WhereVotesRemain snapshot={snapshot} />
-                </div>
-                <div className="order-5 lg:order-none">
+                <div className="order-5 min-[1100px]:order-none">
                   <MarginTimelineChart
                     snapshot={snapshot}
                     isReplayMode={isReplayMode}
@@ -403,10 +513,79 @@ export function App() {
                       setIsReplayPlaying(!isReplayPlaying)
                     }
                     onChangeReplaySpeed={(ms) => setReplaySpeedMs(ms)}
+                    isCompact={true}
+                    onExpandModal={() => setIsTimelineModalOpen(true)}
                   />
                 </div>
               </div>
+
+              {/* COLUNA CENTRAL */}
+              <div className="contents min-[1100px]:block min-[1100px]:col-span-6">
+                <div className="order-2 min-[1100px]:order-none">
+                  <SwingMapSection
+                    snapshot={snapshot}
+                    stage={stage}
+                    isDark={theme === 'dark'}
+                  />
+                </div>
+              </div>
+
+              {/* COLUNA DIREITA */}
+              <div className="contents min-[1100px]:block min-[1100px]:col-span-3 min-[1100px]:sticky min-[1100px]:top-[68px] min-[1100px]:space-y-4">
+                <div className="order-3 min-[1100px]:order-none">
+                  <WhereVotesRemain snapshot={snapshot} />
+                </div>
+                <div className="order-4 min-[1100px]:order-none">
+                  <RegionBreakdownCard snapshot={snapshot} />
+                </div>
+              </div>
             </div>
+
+            {/* Modal de visualização expandida da Linha do Tempo */}
+            {isTimelineModalOpen && (
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label="Gráfico detalhado da linha do tempo da apuração"
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-6 backdrop-blur-xs"
+                onClick={() => setIsTimelineModalOpen(false)}
+              >
+                <div
+                  className="relative w-full max-w-5xl max-h-[92vh] overflow-y-auto rounded-2xl bg-white p-4 sm:p-6 shadow-2xl dark:border dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setIsTimelineModalOpen(false)}
+                    className="absolute right-3.5 top-3.5 z-10 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/[0.08] dark:hover:text-white"
+                    aria-label="Fechar modal do gráfico"
+                  >
+                    <X className="h-5 w-5" aria-hidden="true" />
+                  </button>
+                  <MarginTimelineChart
+                    snapshot={snapshot}
+                    isReplayMode={isReplayMode}
+                    replayBundle={replayBundle}
+                    replayFrameIndex={replayFrameIndex}
+                    isReplayPlaying={isReplayPlaying}
+                    replaySpeedMs={replaySpeedMs}
+                    onStartReplay={() => {
+                      void startReplay2022()
+                    }}
+                    onStopReplay={stopReplay2022}
+                    onSelectReplayFrame={(idx) => {
+                      setIsReplayPlaying(false)
+                      setReplayFrameIndex(idx)
+                    }}
+                    onToggleReplayPlay={() =>
+                      setIsReplayPlaying(!isReplayPlaying)
+                    }
+                    onChangeReplaySpeed={(ms) => setReplaySpeedMs(ms)}
+                    isCompact={false}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Metodologia acessível pelo botão superior da barra de ferramentas; elemento oculto preservado para testes */}
             <div data-testid="secondary-analytics-accordions" className="hidden" aria-hidden="true" />

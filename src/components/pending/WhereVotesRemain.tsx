@@ -2,7 +2,9 @@ import { useState } from 'react'
 import {
   ArrowUpDown,
   BarChart3,
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   Info,
   Search,
 } from 'lucide-react'
@@ -28,6 +30,7 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
 
   const [sortBy, setSortBy] = useState<SortByMode>('remaining_votes')
   const [searchQuery, setSearchQuery] = useState<string>('')
+  const [isExpanded, setIsExpanded] = useState<boolean>(false)
 
   // Para Presidente: permite expandir uma UF e ver o ranking dos municípios dela
   const [selectedPresUf, setSelectedPresUf] = useState<string | null>(null)
@@ -101,13 +104,13 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
       )
     })
 
-  const visibleCards = filteredLocalities
+  const visibleCards = isExpanded ? filteredLocalities : filteredLocalities.slice(0, 3)
 
   return (
     <section
       aria-label="Onde ainda falta contar"
       data-testid="where-votes-remain"
-      className="flex flex-col h-[460px] sm:h-[490px] max-h-[490px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
+      className="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition-all duration-300 dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
     >
       {/* 1. Cabeçalho Limpo: Título + Ícone ⓘ com Tooltip Dinâmico + Toggle Feature Flag */}
       <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
@@ -219,64 +222,68 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
         </div>
       </div>
 
-      {/* 3. Barra de Controles: Busca + Ordenação */}
-      <div className="mt-3 shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5 dark:border-[#1F1F24]">
-        <div className="flex items-center gap-1.5">
-          <div className="relative">
-            <Search
-              className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={
-                snapshot.cargo_code === '1' && !selectedPresUf
-                  ? 'Buscar UF (ex.: SP, BA)...'
-                  : 'Buscar município...'
-              }
-              aria-label="Filtrar localidade por nome ou sigla"
-              className="w-40 sm:w-52 rounded-lg border border-slate-300 bg-white py-1 pl-8 pr-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-600 focus:outline-none dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-100"
-            />
+      {/* 3. Barra de Controles: Busca + Ordenação (visíveis apenas quando expandido) */}
+      {isExpanded && (
+        <div className="mt-3 shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5 dark:border-[#1F1F24]">
+          <div className="flex items-center gap-1.5">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={
+                  snapshot.cargo_code === '1' && !selectedPresUf
+                    ? 'Buscar UF (ex.: SP, BA)...'
+                    : 'Buscar município...'
+                }
+                aria-label="Filtrar localidade por nome ou sigla"
+                className="w-40 sm:w-52 rounded-lg border border-slate-300 bg-white py-1 pl-8 pr-2.5 text-base sm:text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-600 focus:outline-none dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-100"
+              />
+            </div>
+
+            {selectedPresUf && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedPresUf(null)
+                  setPresMunList(null)
+                }}
+                className="rounded-lg border border-slate-300 bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                ← Voltar às UFs
+              </button>
+            )}
           </div>
 
-          {selectedPresUf && (
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedPresUf(null)
-                setPresMunList(null)
-              }}
-              className="rounded-lg border border-slate-300 bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-800 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-            >
-              ← Voltar às UFs
-            </button>
-          )}
+          <button
+            type="button"
+            data-testid="toggle-pending-sort-btn"
+            onClick={() =>
+              setSortBy((prev) =>
+                prev === 'remaining_votes'
+                  ? 'pct_remaining'
+                  : 'remaining_votes',
+              )
+            }
+            className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-200"
+          >
+            <ArrowUpDown className="h-3 w-3" aria-hidden="true" />
+            <span>
+              {sortBy === 'remaining_votes' ? 'Mais votos rest.' : '% urnas pend.'}
+            </span>
+          </button>
         </div>
+      )}
 
-        <button
-          type="button"
-          data-testid="toggle-pending-sort-btn"
-          onClick={() =>
-            setSortBy((prev) =>
-              prev === 'remaining_votes'
-                ? 'pct_remaining'
-                : 'remaining_votes',
-            )
-          }
-          className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-200"
-        >
-          <ArrowUpDown className="h-3 w-3" aria-hidden="true" />
-          <span>
-            {sortBy === 'remaining_votes' ? 'Mais votos rest.' : '% urnas pend.'}
-          </span>
-        </button>
-      </div>
-
-      {/* 4. Lista Vertical de Cartões Visuais com Scroll Interno */}
+      {/* 4. Lista de Cartões Visuais (Top 3 por padrão, todos com scroll quando expandido) */}
       <div
-        className="mt-2.5 flex-1 min-h-0 space-y-1.5 overflow-y-auto pr-1 scrollbar-thin [scrollbar-width:thin]"
+        className={`mt-2.5 space-y-1.5 pr-1 scrollbar-thin [scrollbar-width:thin] ${
+          isExpanded ? 'max-h-[360px] overflow-y-auto' : ''
+        }`}
         data-testid="pending-localities-table"
       >
         {selectedPresUf && (
@@ -379,6 +386,24 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
             </div>
           )
         })}
+      </div>
+
+      {/* 5. Botão de Expandir / Colapsar Lista */}
+      <div className="mt-3 pt-2.5 border-t border-slate-200/80 flex justify-end dark:border-[#1F1F24]">
+        <button
+          type="button"
+          data-testid="toggle-pending-expand-btn"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          aria-expanded={isExpanded}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+        >
+          <span>{isExpanded ? 'Ver menos' : `Ver todos (${filteredLocalities.length})`}</span>
+          {isExpanded ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </button>
       </div>
     </section>
   )

@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Clock,
   History,
   Info,
   LineChart,
+  Maximize2,
   Pause,
   Percent,
   Play,
@@ -34,14 +35,9 @@ interface MarginTimelineChartProps {
   onSelectReplayFrame: (idx: number) => void
   onToggleReplayPlay: () => void
   onChangeReplaySpeed: (ms: number) => void
+  isCompact?: boolean
+  onExpandModal?: () => void
 }
-
-const SVG_WIDTH = 720
-const SVG_HEIGHT = 270
-const PAD_LEFT = 54
-const PAD_RIGHT = 56
-const PAD_TOP = 24
-const PAD_BOTTOM = 42
 
 export function MarginTimelineChart({
   snapshot,
@@ -55,6 +51,8 @@ export function MarginTimelineChart({
   onSelectReplayFrame,
   onToggleReplayPlay,
   onChangeReplaySpeed,
+  isCompact = false,
+  onExpandModal,
 }: MarginTimelineChartProps) {
   const [cand1, cand2] = snapshot.candidates
   const [theme1, theme2] = getDisputePairThemes(cand1, cand2)
@@ -64,9 +62,48 @@ export function MarginTimelineChart({
   )
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
 
-  const points: TimelinePoint[] = snapshot.timeline ?? []
-  const plotW = SVG_WIDTH - PAD_LEFT - PAD_RIGHT
-  const plotH = SVG_HEIGHT - PAD_TOP - PAD_BOTTOM
+  // Medição da largura real da área disponível via ResizeObserver
+  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [containerWidth, setContainerWidth] = useState<number>(360)
+
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const update = () => {
+      const rect = el.getBoundingClientRect()
+      if (rect.width > 0) setContainerWidth(Math.round(rect.width))
+    }
+    update()
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = entry.contentRect.width
+        if (w > 0) setContainerWidth(Math.round(w))
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const rawPoints: TimelinePoint[] = snapshot.timeline ?? []
+  // Inicia o gráfico no primeiro ponto real da apuração (>0% ou com votos apurados)
+  const firstRealIdx = rawPoints.findIndex(
+    (p) => p.pct_counted > 0 || (p.cand1_pct > 0 && p.cand2_pct > 0),
+  )
+  const points: TimelinePoint[] =
+    firstRealIdx > 0 ? rawPoints.slice(firstRealIdx) : rawPoints
+
+  // Dimensões reais em px (desktop: 360px, mobile: 280px; modal: 460px)
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 640
+  const chartHeight = isCompact ? (isMobile ? 280 : 360) : 460
+  const chartWidth = Math.max(260, containerWidth)
+
+  const PAD_LEFT = 48
+  const PAD_RIGHT = 62
+  const PAD_TOP = 20
+  const PAD_BOTTOM = 36
+
+  const plotW = Math.max(80, chartWidth - PAD_LEFT - PAD_RIGHT)
+  const plotH = Math.max(80, chartHeight - PAD_TOP - PAD_BOTTOM)
 
   const activePoint: TimelinePoint | null =
     points.length > 0
@@ -82,12 +119,12 @@ export function MarginTimelineChart({
     return PAD_LEFT + (idx / (points.length - 1)) * plotW
   }
 
-  // Escala vertical Y para o gráfico de Margem (Candidato 1 - Candidato 2 em p.p.)
+  // Escala vertical Y para o gráfico de Margem: simétrico em torno de zero com linha marcada
   const maxAbsMargin = Math.max(
-    4,
+    3.5,
     ...points.map((p) => Math.abs(p.margin_cand1_minus_cand2_pp)),
   )
-  const yBoundMargin = Math.ceil(maxAbsMargin * 1.15)
+  const yBoundMargin = Number((maxAbsMargin * 1.25).toFixed(1))
   const zeroY = PAD_TOP + plotH / 2
 
   const getYMargin = (marginPP: number): number => {
@@ -95,25 +132,20 @@ export function MarginTimelineChart({
     return zeroY - (clamped / yBoundMargin) * (plotH / 2)
   }
 
-  // Escala vertical Y para o gráfico de ambos os candidatos (% válidos)
-  // Foca dinamicamente na faixa útil dos candidatos (ex: min 35% a max 65% quando ambos estiverem perto de 50%),
-  // evitando que as linhas fiquem esmagadas no topo do gráfico.
+  // Escala vertical Y para o gráfico de ambos os candidatos:
+  // Ajuste automático aos dados com span mínimo de ~6 pontos percentuais para separação nítida
   const validPcts = points
     .flatMap((p) => [p.cand1_pct, p.cand2_pct])
     .filter((v) => v > 0 && Number.isFinite(v))
 
   const minObserved = validPcts.length > 0 ? Math.min(...validPcts) : 48
   const maxObserved = validPcts.length > 0 ? Math.max(...validPcts) : 52
-
-  let minCandPct = Math.max(0, Math.floor(minObserved - 3))
-  let maxCandPct = Math.min(100, Math.ceil(maxObserved + 3))
-
-  if (maxCandPct - minCandPct < 30) {
-    const mid = (minCandPct + maxCandPct) / 2
-    minCandPct = Math.max(0, Math.round(mid - 15))
-    maxCandPct = Math.min(100, Math.round(mid + 15))
-  }
-  const spanCandPct = Math.max(4, maxCandPct - minCandPct)
+  const center = (minObserved + maxObserved) / 2
+  const observedSpan = maxObserved - minObserved
+  const targetSpan = Math.max(6, observedSpan + 2.5)
+  const minCandPct = Math.max(0, Number((center - targetSpan / 2).toFixed(1)))
+  const maxCandPct = Math.min(100, Number((center + targetSpan / 2).toFixed(1)))
+  const spanCandPct = Math.max(2, maxCandPct - minCandPct)
 
   const getYCandPct = (pct: number): number => {
     return PAD_TOP + (1 - (pct - minCandPct) / spanCandPct) * plotH
@@ -123,48 +155,12 @@ export function MarginTimelineChart({
     .map((pt, idx) => `${getX(pt, idx).toFixed(1)},${getYMargin(pt.margin_cand1_minus_cand2_pp).toFixed(1)}`)
     .join(' ')
 
-  const marginAreaPath =
-    points.length > 1
-      ? `M ${getX(points[0], 0).toFixed(1)},${zeroY.toFixed(1)} ` +
-        points
-          .map(
-            (pt, idx) =>
-              `L ${getX(pt, idx).toFixed(1)},${getYMargin(pt.margin_cand1_minus_cand2_pp).toFixed(1)}`,
-          )
-          .join(' ') +
-        ` L ${getX(points[points.length - 1], points.length - 1).toFixed(1)},${zeroY.toFixed(1)} Z`
-      : ''
-
   const cand1Polyline = points
     .map((pt, idx) => `${getX(pt, idx).toFixed(1)},${getYCandPct(pt.cand1_pct).toFixed(1)}`)
     .join(' ')
   const cand2Polyline = points
     .map((pt, idx) => `${getX(pt, idx).toFixed(1)},${getYCandPct(pt.cand2_pct).toFixed(1)}`)
     .join(' ')
-
-  const bottomY = PAD_TOP + plotH
-  const cand1AreaPath =
-    points.length > 1
-      ? `M ${getX(points[0], 0).toFixed(1)},${bottomY.toFixed(1)} ` +
-        points
-          .map(
-            (pt, idx) =>
-              `L ${getX(pt, idx).toFixed(1)},${getYCandPct(pt.cand1_pct).toFixed(1)}`,
-          )
-          .join(' ') +
-        ` L ${getX(points[points.length - 1], points.length - 1).toFixed(1)},${bottomY.toFixed(1)} Z`
-      : ''
-  const cand2AreaPath =
-    points.length > 1
-      ? `M ${getX(points[0], 0).toFixed(1)},${bottomY.toFixed(1)} ` +
-        points
-          .map(
-            (pt, idx) =>
-              `L ${getX(pt, idx).toFixed(1)},${getYCandPct(pt.cand2_pct).toFixed(1)}`,
-          )
-          .join(' ') +
-        ` L ${getX(points[points.length - 1], points.length - 1).toFixed(1)},${bottomY.toFixed(1)} Z`
-      : ''
 
   const lastPt = points.length > 0 ? points[points.length - 1] : null
   const lastIdx = points.length - 1
@@ -174,106 +170,130 @@ export function MarginTimelineChart({
 
   let badgeY1 = rawLastY1
   let badgeY2 = rawLastY2
-  if (Math.abs(badgeY1 - badgeY2) < 20) {
+  const minBadgeGap = 26
+  if (Math.abs(badgeY1 - badgeY2) < minBadgeGap) {
     if (badgeY1 <= badgeY2) {
-      badgeY1 -= 9
-      badgeY2 += 9
+      badgeY1 -= minBadgeGap / 2
+      badgeY2 += minBadgeGap / 2
     } else {
-      badgeY1 += 9
-      badgeY2 -= 9
+      badgeY1 += minBadgeGap / 2
+      badgeY2 -= minBadgeGap / 2
     }
   }
+  const badgeWidth = 54
+  const badgeHeight = 20
   const badgeX =
-    lastX + 54 > SVG_WIDTH - 4 ? Math.max(PAD_LEFT + 4, lastX - 52) : lastX + 6
+    lastX + badgeWidth > chartWidth - 4
+      ? Math.max(PAD_LEFT + 2, lastX - badgeWidth - 6)
+      : lastX + 6
 
   return (
     <section
       aria-label="Linha do tempo da apuração e Replay 2022"
       data-testid="margin-timeline-section"
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
+      className={
+        isCompact
+          ? 'rounded-2xl border border-slate-200 bg-white p-3.5 shadow-xs dark:border-[#1F1F24] dark:bg-[#0A0A0C]'
+          : 'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 dark:border-[#1F1F24] dark:bg-[#0A0A0C]'
+      }
     >
-      {/* 1. Cabeçalho Limpo: Ícone Azul + Título Lado a Lado na Primeira Linha Inteira */}
-      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-3 dark:border-[#1F1F24]">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm">
-            <LineChart className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
+      {/* 1. Cabeçalho Limpo: Ícone Azul + Título + Expandir quando compacto */}
+      <div className="flex items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5 dark:border-[#1F1F24]">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-xs">
+            <LineChart className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
             <span
-              className="absolute -top-1 -right-1 flex h-2.5 w-2.5"
+              className="absolute -top-1 -right-1 flex h-2 w-2"
               title="Indicador da Linha do Tempo"
             >
               <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
-              <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
             </span>
           </div>
 
-          <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white whitespace-nowrap">
-            Linha do Tempo da Apuração
+          <h2 className="text-sm font-bold text-slate-900 sm:text-base dark:text-white truncate">
+            Linha do Tempo
           </h2>
 
           {/* Ícone ⓘ discreto com Tooltip dinâmico */}
-          <div className="group relative inline-flex items-center shrink-0">
-            <button
-              type="button"
-              className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none dark:text-slate-500 dark:hover:text-slate-300"
-              aria-label="Informações sobre a linha do tempo"
-            >
-              <Info className="h-4 w-4" aria-hidden="true" />
-            </button>
-            <div className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-72 rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs leading-relaxed text-slate-200 shadow-2xl group-hover:block group-focus-within:block">
-              <p className="font-medium text-white">Trajetória e Cruzamento</p>
-              <p className="mt-1 text-slate-300">
-                Evolução temporal da diferença em pontos percentuais ({cand1.ballot_name} − {cand2.ballot_name}) correlacionada com a porcentagem de urnas apuradas e o horário oficial de divulgação do TSE.
-              </p>
+          {!isCompact && (
+            <div className="group relative inline-flex items-center shrink-0">
+              <button
+                type="button"
+                className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none dark:text-slate-500 dark:hover:text-slate-300"
+                aria-label="Informações sobre a linha do tempo"
+              >
+                <Info className="h-4 w-4" aria-hidden="true" />
+              </button>
+              <div className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-72 rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs leading-relaxed text-slate-200 shadow-2xl group-hover:block group-focus-within:block">
+                <p className="font-medium text-white">Trajetória e Cruzamento</p>
+                <p className="mt-1 text-slate-300">
+                  Evolução temporal da diferença em pontos percentuais ({cand1.ballot_name} − {cand2.ballot_name}) correlacionada com a porcentagem de urnas apuradas e o horário oficial de divulgação do TSE.
+                </p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Badge Sutil de Modo */}
-        <div className="shrink-0">
+        {/* Badges e Botão Expandir */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {isReplayMode ? (
             <span
               data-testid="timeline-replay-badge"
-              className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-2 py-0.5 text-[11px] font-bold text-slate-950 whitespace-nowrap"
+              className="inline-flex items-center gap-1 rounded-md bg-amber-500 px-1.5 py-0.5 text-[10px] font-bold text-slate-950 whitespace-nowrap"
             >
-              <History className="h-3 w-3" aria-hidden="true" />
-              REPLAY 2022
+              <History className="h-2.5 w-2.5" aria-hidden="true" />
+              REPLAY
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-[#0F0F12] dark:border dark:border-[#1F1F24] dark:text-slate-300 whitespace-nowrap">
-              <Radio className="h-3 w-3 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+            <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700 dark:bg-[#0F0F12] dark:border dark:border-[#1F1F24] dark:text-slate-300 whitespace-nowrap">
+              <Radio className="h-2.5 w-2.5 text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
               Ao Vivo
             </span>
+          )}
+
+          {isCompact && onExpandModal && (
+            <button
+              type="button"
+              onClick={onExpandModal}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/[0.05] dark:text-slate-300 dark:hover:bg-white/[0.1] dark:hover:text-white transition"
+              title="Expandir gráfico da linha do tempo em modal"
+              aria-label="Expandir gráfico da linha do tempo"
+            >
+              <Maximize2 className="h-3 w-3" aria-hidden="true" />
+              <span className="hidden sm:inline">Expandir</span>
+            </button>
           )}
         </div>
       </div>
 
-      {/* 2. Barra de Controles Segmentados Compactos (Abaixo do Título em Linha Organizada) */}
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 pb-1">
-        {/* Alternador de Séries: % Candidatos vs Margem */}
+      {/* 2. Barra de Controles numa ÚNICA linha, sem quebrar */}
+      <div className="mt-2 flex items-center justify-between gap-1 overflow-x-auto no-scrollbar pb-1 text-xs whitespace-nowrap">
+        {/* Alternador de Séries: Candidatos vs Margem */}
         <div
           role="group"
           aria-label="Série exibida no gráfico"
-          className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs whitespace-nowrap dark:border-white/[0.07] dark:bg-white/[0.04]"
+          className="inline-flex shrink-0 items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-white/[0.07] dark:bg-white/[0.04]"
         >
           <button
             type="button"
             data-testid="timeline-series-both-btn"
             aria-pressed={chartType === 'both_candidates'}
             onClick={() => setChartType('both_candidates')}
-            className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+            className={`rounded-md px-1.5 py-0.5 text-[10px] sm:text-[10.5px] font-semibold transition ${
               chartType === 'both_candidates'
                 ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
                 : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            % Candidatos
+            Candidatos
           </button>
           <button
             type="button"
             data-testid="timeline-series-margin-btn"
             aria-pressed={chartType === 'margin'}
             onClick={() => setChartType('margin')}
-            className={`rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+            className={`rounded-md px-1.5 py-0.5 text-[10px] sm:text-[10.5px] font-semibold transition ${
               chartType === 'margin'
                 ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
                 : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
@@ -283,38 +303,38 @@ export function MarginTimelineChart({
           </button>
         </div>
 
-        {/* Eixo X: % Urnas vs Horário */}
+        {/* Eixo X: Urnas vs Horário */}
         <div
           role="group"
           aria-label="Eixo horizontal da linha do tempo"
-          className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs whitespace-nowrap dark:border-white/[0.07] dark:bg-white/[0.04]"
+          className="inline-flex shrink-0 items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-white/[0.07] dark:bg-white/[0.04]"
         >
           <button
             type="button"
             data-testid="timeline-xaxis-pct-btn"
             aria-pressed={xAxisMode === 'pct'}
             onClick={() => setXAxisMode('pct')}
-            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+            className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] sm:text-[10.5px] font-semibold transition ${
               xAxisMode === 'pct'
                 ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
                 : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            <Percent className="h-2.5 w-2.5" aria-hidden="true" />
-            % Urnas
+            <Percent className="h-2 w-2" aria-hidden="true" />
+            Urnas
           </button>
           <button
             type="button"
             data-testid="timeline-xaxis-time-btn"
             aria-pressed={xAxisMode === 'time'}
             onClick={() => setXAxisMode('time')}
-            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+            className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] sm:text-[10.5px] font-semibold transition ${
               xAxisMode === 'time'
                 ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
                 : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            <Clock className="h-2.5 w-2.5" aria-hidden="true" />
+            <Clock className="h-2 w-2" aria-hidden="true" />
             Horário
           </button>
         </div>
@@ -323,7 +343,7 @@ export function MarginTimelineChart({
         <div
           role="group"
           aria-label="Alternar entre Apuração 2026 e Replay Histórico 2022"
-          className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 text-xs whitespace-nowrap dark:border-white/[0.07] dark:bg-white/[0.04]"
+          className="inline-flex shrink-0 items-center rounded-lg border border-slate-200 bg-slate-100 p-0.5 dark:border-white/[0.07] dark:bg-white/[0.04]"
         >
           <button
             type="button"
@@ -332,7 +352,7 @@ export function MarginTimelineChart({
             onClick={() => {
               if (isReplayMode) onStopReplay()
             }}
-            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+            className={`rounded-md px-1.5 py-0.5 text-[10px] sm:text-[10.5px] font-semibold transition ${
               !isReplayMode
                 ? 'bg-white text-slate-900 shadow-2xs dark:bg-slate-800 dark:text-white'
                 : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
@@ -347,13 +367,13 @@ export function MarginTimelineChart({
             onClick={() => {
               if (!isReplayMode) onStartReplay()
             }}
-            className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold transition ${
+            className={`inline-flex items-center gap-0.5 rounded-md px-1.5 py-0.5 text-[10px] sm:text-[10.5px] font-semibold transition ${
               isReplayMode
                 ? 'bg-amber-500 text-slate-950 shadow-2xs'
                 : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
             }`}
           >
-            <History className="h-2.5 w-2.5" aria-hidden="true" />
+            <History className="h-2 w-2" aria-hidden="true" />
             Replay 22
           </button>
         </div>
@@ -443,110 +463,95 @@ export function MarginTimelineChart({
           completa de 0% a 100%.
         </div>
       ) : (
-        <div className="mt-3 space-y-3">
-          {/* Resumo do ponto em foco (último ou sob o cursor) */}
+        <div className="mt-2.5 space-y-2">
+          {/* Resumo em linha compacta única */}
           {activePoint && (
             <div
               data-testid="timeline-active-point-summary"
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+              className="flex items-center justify-between gap-1.5 overflow-x-auto no-scrollbar rounded-lg border border-slate-200/90 bg-slate-50/90 px-2.5 py-1 text-[11px] whitespace-nowrap dark:border-[#1F1F24] dark:bg-[#0F0F12]"
             >
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="font-mono font-bold text-slate-900 dark:text-white">
-                  Horário TSE: {activePoint.timestamp}
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                  TSE: <strong className="font-mono text-slate-900 dark:text-white">{activePoint.timestamp.slice(0, 5)}</strong>
                 </span>
-                <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-slate-800 dark:bg-slate-700 dark:text-slate-200">
-                  {formatPct(activePoint.pct_counted)} das urnas
+                <span className="text-slate-300 dark:text-slate-600">·</span>
+                <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatPct(activePoint.pct_counted)} apurado
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <span className={`inline-flex items-center gap-1 font-medium ${theme1.textAccentClass}`}>
-                  <span
-                    className={`inline-block h-2.5 w-2.5 rounded-full ${theme1.dotClass}`}
-                    aria-hidden="true"
-                  />
-                  {cand1.ballot_name}:{' '}
-                  <strong className="font-mono">
-                    {formatPct(activePoint.cand1_pct)}
-                  </strong>
-                </span>
-                <span className={`inline-flex items-center gap-1 font-medium ${theme2.textAccentClass}`}>
-                  <span
-                    className={`inline-block h-2.5 w-2.5 rounded-full ${theme2.dotClass}`}
-                    aria-hidden="true"
-                  />
-                  {cand2.ballot_name}:{' '}
-                  <strong className="font-mono">
-                    {formatPct(activePoint.cand2_pct)}
-                  </strong>
-                </span>
+              <div className="flex items-center gap-1.5 shrink-0">
                 {(() => {
                   const diff = activePoint.margin_cand1_minus_cand2_pp
                   if (diff > 0) {
                     return (
-                      <span className={`rounded-md px-2 py-0.5 font-mono text-[11px] font-bold ${theme1.badgeClass}`}>
-                        Vantagem atual: {cand1.ballot_name.toUpperCase()} +{formatPP(diff)}
+                      <span className={`inline-flex items-center gap-1 font-bold ${theme1.textAccentClass}`}>
+                        <span className={`h-2 w-2 rounded-full ${theme1.dotClass}`} />
+                        {cand1.ballot_name} +{formatPP(diff)}
                       </span>
                     )
                   }
                   if (diff < 0) {
                     return (
-                      <span className={`rounded-md px-2 py-0.5 font-mono text-[11px] font-bold ${theme2.badgeClass}`}>
-                        Vantagem atual: {cand2.ballot_name.toUpperCase()} +{formatPP(diff)}
+                      <span className={`inline-flex items-center gap-1 font-bold ${theme2.textAccentClass}`}>
+                        <span className={`h-2 w-2 rounded-full ${theme2.dotClass}`} />
+                        {cand2.ballot_name} +{formatPP(Math.abs(diff))}
                       </span>
                     )
                   }
                   return (
-                    <span className="rounded-md bg-slate-200 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-800 dark:bg-slate-800 dark:text-slate-200">
-                      Empate técnico
-                    </span>
+                    <span className="text-slate-500 font-medium">Empate técnico</span>
                   )
                 })()}
               </div>
             </div>
           )}
 
-          {/* Área gráfica SVG responsiva */}
-          <div className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white p-2 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
+          {/* Área gráfica SVG com dimensões reais e fontes legíveis */}
+          <div
+            ref={containerRef}
+            className="overflow-x-auto rounded-xl border border-slate-200/80 bg-white p-2 dark:border-[#1F1F24] dark:bg-[#0F0F12]"
+          >
             <svg
-              viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+              width="100%"
+              height={chartHeight}
+              viewBox={`0 0 ${chartWidth} ${chartHeight}`}
               role="img"
               aria-label={`Gráfico da linha do tempo da apuração (${points.length} snapshots registrados)`}
-              className="h-auto w-full min-w-[300px] select-none"
+              className="w-full select-none"
             >
-              <defs>
-                <linearGradient
-                  id="margin-area-grad"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor={theme1.hexLight} stopOpacity="0.28" />
-                  <stop offset="50%" stopColor="#64748b" stopOpacity="0.05" />
-                  <stop offset="100%" stopColor={theme2.hexLight} stopOpacity="0.28" />
-                </linearGradient>
-                <linearGradient
-                  id="cand1-area-grad"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor={theme1.hexLight} stopOpacity="0.22" />
-                  <stop offset="100%" stopColor={theme1.hexLight} stopOpacity="0.02" />
-                </linearGradient>
-                <linearGradient
-                  id="cand2-area-grad"
-                  x1="0"
-                  y1="0"
-                  x2="0"
-                  y2="1"
-                >
-                  <stop offset="0%" stopColor={theme2.hexLight} stopOpacity="0.22" />
-                  <stop offset="100%" stopColor={theme2.hexLight} stopOpacity="0.02" />
-                </linearGradient>
-              </defs>
+              {/* Área sombreada sutil na porção futura ainda não apurada */}
+              {xAxisMode === 'pct' && lastPt && lastPt.pct_counted < 100 && (
+                <g>
+                  <rect
+                    x={lastX}
+                    y={PAD_TOP}
+                    width={Math.max(0, PAD_LEFT + plotW - lastX)}
+                    height={plotH}
+                    fill="currentColor"
+                    className="text-slate-400/[0.05] dark:text-white/[0.03]"
+                  />
+                  <line
+                    x1={lastX}
+                    y1={PAD_TOP}
+                    x2={lastX}
+                    y2={PAD_TOP + plotH}
+                    stroke="rgba(148, 163, 184, 0.35)"
+                    strokeWidth="1.2"
+                    strokeDasharray="3 3"
+                  />
+                  {PAD_LEFT + plotW - lastX > 75 && (
+                    <text
+                      x={lastX + (PAD_LEFT + plotW - lastX) / 2}
+                      y={PAD_TOP + 14}
+                      textAnchor="middle"
+                      className="fill-slate-400 font-mono text-[10px] uppercase tracking-wider dark:fill-slate-500 select-none font-semibold"
+                    >
+                      A apurar ({formatPct(100 - lastPt.pct_counted)})
+                    </text>
+                  )}
+                </g>
+              )}
 
               {/* Grade Horizontal */}
               {chartType === 'margin' ? (
@@ -560,22 +565,22 @@ export function MarginTimelineChart({
                           <line
                             x1={PAD_LEFT}
                             y1={y}
-                            x2={SVG_WIDTH - PAD_RIGHT}
+                            x2={PAD_LEFT + plotW}
                             y2={y}
                             stroke={
                               isZero
                                 ? '#64748b'
-                                : 'rgba(148, 163, 184, 0.25)'
+                                : 'rgba(148, 163, 184, 0.22)'
                             }
                             strokeWidth={isZero ? 1.5 : 1}
                             strokeDasharray={isZero ? '4 3' : undefined}
                           />
                           <text
-                            x={PAD_LEFT - 6}
+                            x={PAD_LEFT - 8}
                             y={y}
                             textAnchor="end"
                             dominantBaseline="central"
-                            className="fill-slate-500 font-mono text-[10px] dark:fill-slate-400"
+                            className="fill-slate-500 font-mono text-[11px] font-semibold dark:fill-slate-400"
                           >
                             {val > 0 ? `+${val.toFixed(1)}` : val.toFixed(1)}
                           </text>
@@ -594,17 +599,17 @@ export function MarginTimelineChart({
                         <line
                           x1={PAD_LEFT}
                           y1={y}
-                          x2={SVG_WIDTH - PAD_RIGHT}
+                          x2={PAD_LEFT + plotW}
                           y2={y}
-                          stroke="rgba(148, 163, 184, 0.25)"
+                          stroke="rgba(148, 163, 184, 0.22)"
                           strokeWidth="1"
                         />
                         <text
-                          x={PAD_LEFT - 6}
+                          x={PAD_LEFT - 8}
                           y={y}
                           textAnchor="end"
                           dominantBaseline="central"
-                          className="fill-slate-500 font-mono text-[10px] dark:fill-slate-400"
+                          className="fill-slate-500 font-mono text-[11px] font-semibold dark:fill-slate-400"
                         >
                           {val.toFixed(1)}%
                         </text>
@@ -624,15 +629,15 @@ export function MarginTimelineChart({
                           x1={x}
                           y1={PAD_TOP}
                           x2={x}
-                          y2={SVG_HEIGHT - PAD_BOTTOM}
-                          stroke="rgba(148, 163, 184, 0.18)"
+                          y2={PAD_TOP + plotH}
+                          stroke="rgba(148, 163, 184, 0.16)"
                           strokeWidth="1"
                         />
                         <text
                           x={x}
-                          y={SVG_HEIGHT - PAD_BOTTOM + 16}
+                          y={PAD_TOP + plotH + 15}
                           textAnchor="middle"
-                          className="fill-slate-500 font-mono text-[10px] dark:fill-slate-400"
+                          className="fill-slate-500 font-mono text-[11px] font-semibold dark:fill-slate-400"
                         >
                           {pctTick}%
                         </text>
@@ -646,24 +651,33 @@ export function MarginTimelineChart({
                     }
                     const x = getX(pt, idx)
                     return (
-                      <text
-                        key={`t-${pt.timestamp}-${idx}`}
-                        x={x}
-                        y={SVG_HEIGHT - PAD_BOTTOM + 16}
-                        textAnchor="middle"
-                        className="fill-slate-500 font-mono text-[10px] dark:fill-slate-400"
-                      >
-                        {pt.timestamp.slice(0, 5)}
-                      </text>
+                      <g key={`t-${pt.timestamp}-${idx}`}>
+                        <line
+                          x1={x}
+                          y1={PAD_TOP}
+                          x2={x}
+                          y2={PAD_TOP + plotH}
+                          stroke="rgba(148, 163, 184, 0.16)"
+                          strokeWidth="1"
+                        />
+                        <text
+                          x={x}
+                          y={PAD_TOP + plotH + 15}
+                          textAnchor="middle"
+                          className="fill-slate-500 font-mono text-[11px] font-semibold dark:fill-slate-400"
+                        >
+                          {pt.timestamp.slice(0, 5)}
+                        </text>
+                      </g>
                     )
                   })}
 
               {/* Rótulo do eixo X */}
               <text
                 x={PAD_LEFT + plotW / 2}
-                y={SVG_HEIGHT - 6}
+                y={chartHeight - 6}
                 textAnchor="middle"
-                className="fill-slate-500 font-sans text-[10px] font-semibold dark:fill-slate-400"
+                className="fill-slate-500 font-sans text-[11px] font-semibold dark:fill-slate-400"
               >
                 {xAxisMode === 'pct'
                   ? 'Percentual de urnas apuradas (%)'
@@ -673,13 +687,10 @@ export function MarginTimelineChart({
               {/* Séries de Dados */}
               {chartType === 'margin' ? (
                 <>
-                  {marginAreaPath && (
-                    <path d={marginAreaPath} fill="url(#margin-area-grad)" />
-                  )}
                   <polyline
                     fill="none"
                     stroke="#475569"
-                    strokeWidth="2.4"
+                    strokeWidth="2.5"
                     points={marginPolyline}
                   />
                   {points.map((pt, idx) => {
@@ -703,7 +714,7 @@ export function MarginTimelineChart({
                         <circle
                           cx={cx}
                           cy={cy}
-                          r={isHovered ? 5.5 : 3.5}
+                          r={isHovered ? 6 : 4}
                           fill={dotColor}
                           stroke="#ffffff"
                           strokeWidth="1.5"
@@ -717,14 +728,6 @@ export function MarginTimelineChart({
                 </>
               ) : (
                 <>
-                  {/* Suave degradê/brilho sob as curvas */}
-                  {cand1AreaPath && (
-                    <path d={cand1AreaPath} fill="url(#cand1-area-grad)" />
-                  )}
-                  {cand2AreaPath && (
-                    <path d={cand2AreaPath} fill="url(#cand2-area-grad)" />
-                  )}
-
                   {/* Curva Candidato 1 */}
                   <polyline
                     fill="none"
@@ -757,7 +760,7 @@ export function MarginTimelineChart({
                         <circle
                           cx={cx}
                           cy={cy1}
-                          r={isHovered ? 5 : 3.5}
+                          r={isHovered ? 5.5 : 3.5}
                           fill={theme1.hexLight}
                           stroke="#ffffff"
                           strokeWidth="1.5"
@@ -765,7 +768,7 @@ export function MarginTimelineChart({
                         <circle
                           cx={cx}
                           cy={cy2}
-                          r={isHovered ? 5 : 3.5}
+                          r={isHovered ? 5.5 : 3.5}
                           fill={theme2.hexLight}
                           stroke="#ffffff"
                           strokeWidth="1.5"
@@ -783,20 +786,20 @@ export function MarginTimelineChart({
                       <g>
                         <rect
                           x={badgeX}
-                          y={badgeY1 - 9}
-                          width={48}
-                          height={18}
-                          rx={4}
+                          y={badgeY1 - 10}
+                          width={badgeWidth}
+                          height={badgeHeight}
+                          rx={5}
                           fill={theme1.hexLight}
                           stroke="#ffffff"
-                          strokeWidth="1"
+                          strokeWidth="1.5"
                         />
                         <text
-                          x={badgeX + 24}
+                          x={badgeX + badgeWidth / 2}
                           y={badgeY1}
                           textAnchor="middle"
                           dominantBaseline="central"
-                          className="fill-white font-mono text-[10px] font-bold"
+                          className="fill-white font-mono text-[12px] font-black"
                         >
                           {formatPct(lastPt.cand1_pct)}
                         </text>
@@ -804,20 +807,20 @@ export function MarginTimelineChart({
                       <g>
                         <rect
                           x={badgeX}
-                          y={badgeY2 - 9}
-                          width={48}
-                          height={18}
-                          rx={4}
+                          y={badgeY2 - 10}
+                          width={badgeWidth}
+                          height={badgeHeight}
+                          rx={5}
                           fill={theme2.hexLight}
                           stroke="#ffffff"
-                          strokeWidth="1"
+                          strokeWidth="1.5"
                         />
                         <text
-                          x={badgeX + 24}
+                          x={badgeX + badgeWidth / 2}
                           y={badgeY2}
                           textAnchor="middle"
                           dominantBaseline="central"
-                          className="fill-white font-mono text-[10px] font-bold"
+                          className="fill-white font-mono text-[12px] font-black"
                         >
                           {formatPct(lastPt.cand2_pct)}
                         </text>
@@ -829,27 +832,26 @@ export function MarginTimelineChart({
             </svg>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+          <div className={`flex flex-wrap items-center justify-between gap-2 ${isCompact ? 'text-[10px]' : 'text-[11px]'} text-slate-500 dark:text-slate-400`}>
             {chartType === 'margin' ? (
               <span>
                 Acima de 0,00 p.p.:{' '}
                 <strong className={theme1.textAccentClass}>
                   {cand1.ballot_name}
                 </strong>{' '}
-                à frente · Abaixo de 0,00 p.p.:{' '}
+                · Abaixo de 0,00 p.p.:{' '}
                 <strong className={theme2.textAccentClass}>
                   {cand2.ballot_name}
-                </strong>{' '}
-                à frente
+                </strong>
               </span>
             ) : (
               <span>
-                Linha <strong className={theme1.textAccentClass}>{cand1.ballot_name}</strong> vs.{' '}
-                Linha <strong className={theme2.textAccentClass}>{cand2.ballot_name}</strong> (% dos votos válidos ao longo da contagem)
+                <strong className={theme1.textAccentClass}>{cand1.ballot_name}</strong> vs.{' '}
+                <strong className={theme2.textAccentClass}>{cand2.ballot_name}</strong> (% válidos)
               </span>
             )}
             <span>
-              Maior diferença registrada: {formatPP(maxAbsMargin)}
+              Maior dif.: {formatPP(maxAbsMargin)}
             </span>
           </div>
         </div>

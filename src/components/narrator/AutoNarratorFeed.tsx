@@ -1,6 +1,8 @@
 import { type ComponentType, useEffect, useMemo, useState } from 'react'
 import {
   Activity,
+  ChevronDown,
+  ChevronUp,
   Crosshair,
   GitCompare,
   Info,
@@ -31,52 +33,52 @@ const CATEGORY_META: Record<NarratorMessage['category'], CategoryConfig> = {
     shortPill: 'Virada',
     icon: Crosshair,
     pillClass:
-      'border-purple-300 bg-purple-50 text-purple-900 dark:border-purple-800/70 dark:bg-purple-950/60 dark:text-purple-200',
+      'border-amber-400/50 bg-amber-500/15 text-amber-900 dark:border-amber-500/40 dark:bg-amber-950/70 dark:text-amber-200',
     iconBadgeClass:
-      'bg-purple-500/15 text-purple-600 border border-purple-500/25 dark:bg-purple-500/20 dark:text-purple-300',
+      'bg-amber-500/15 text-amber-600 border border-amber-500/25 dark:bg-amber-500/20 dark:text-amber-300',
   },
   pending_hotspots: {
     label: 'Onde falta contar',
-    shortPill: 'Falta Contar',
+    shortPill: 'Falta contar',
     icon: MapPin,
     pillClass:
-      'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800/70 dark:bg-amber-950/60 dark:text-amber-200',
+      'border-emerald-400/50 bg-emerald-500/15 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-950/70 dark:text-emerald-200',
     iconBadgeClass:
-      'bg-amber-500/15 text-amber-600 border border-amber-500/25 dark:bg-amber-500/20 dark:text-amber-300',
+      'bg-emerald-500/15 text-emerald-600 border border-emerald-500/25 dark:bg-emerald-500/20 dark:text-emerald-300',
   },
   margin_change: {
     label: 'Evolução da margem',
     shortPill: 'Margem',
     icon: Activity,
     pillClass:
-      'border-blue-300 bg-blue-50 text-blue-900 dark:border-blue-800/70 dark:bg-blue-950/60 dark:text-blue-200',
+      'border-purple-400/50 bg-purple-500/15 text-purple-900 dark:border-purple-500/40 dark:bg-purple-950/70 dark:text-purple-200',
     iconBadgeClass:
-      'bg-blue-500/15 text-blue-600 border border-blue-500/25 dark:bg-blue-500/20 dark:text-blue-300',
+      'bg-purple-500/15 text-purple-600 border border-purple-500/25 dark:bg-purple-500/20 dark:text-purple-300',
   },
   progress: {
     label: 'Progresso da apuração',
     shortPill: 'Ritmo',
     icon: TrendingUp,
     pillClass:
-      'border-slate-300 bg-slate-100 text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200',
+      'border-cyan-400/50 bg-cyan-500/15 text-cyan-900 dark:border-cyan-500/40 dark:bg-cyan-950/70 dark:text-cyan-200',
     iconBadgeClass:
-      'bg-emerald-500/15 text-emerald-600 border border-emerald-500/25 dark:bg-emerald-500/20 dark:text-emerald-300',
+      'bg-cyan-500/15 text-cyan-600 border border-cyan-500/25 dark:bg-cyan-500/20 dark:text-cyan-300',
   },
   official_status: {
     label: 'Status oficial TSE',
     shortPill: 'Status',
     icon: Landmark,
     pillClass:
-      'border-emerald-400 bg-emerald-100 text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-200',
+      'border-indigo-400/50 bg-indigo-500/15 text-indigo-900 dark:border-indigo-500/40 dark:bg-indigo-950/70 dark:text-indigo-200',
     iconBadgeClass:
-      'bg-emerald-500/15 text-emerald-600 border border-emerald-500/25 dark:bg-emerald-500/20 dark:text-emerald-300',
+      'bg-indigo-500/15 text-indigo-600 border border-indigo-500/25 dark:bg-indigo-500/20 dark:text-indigo-300',
   },
   swing_highlight: {
     label: 'Variação 1ºT → 2ºT',
-    shortPill: 'Variação 1ºT',
+    shortPill: 'Variação',
     icon: GitCompare,
     pillClass:
-      'border-teal-300 bg-teal-50 text-teal-900 dark:border-teal-800/70 dark:bg-teal-950/60 dark:text-teal-200',
+      'border-teal-400/50 bg-teal-500/15 text-teal-900 dark:border-teal-500/40 dark:bg-teal-950/70 dark:text-teal-200',
     iconBadgeClass:
       'bg-teal-500/15 text-teal-600 border border-teal-500/25 dark:bg-teal-500/20 dark:text-teal-300',
   },
@@ -125,13 +127,24 @@ export function AutoNarratorFeed({
     NarratorMessage['category'] | 'all'
   >('all')
   const [pulseActive, setPulseActive] = useState(true)
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
+  const [elapsedSec, setElapsedSec] = useState(14)
 
-  // Dispara pulso visual a cada novo snapshot recebido
+  // Dispara pulso visual e reinicia contador de tempo decorrido a cada novo snapshot recebido
   useEffect(() => {
     setPulseActive(true)
+    setElapsedSec(3)
     const timer = window.setTimeout(() => setPulseActive(false), 3500)
     return () => window.clearTimeout(timer)
   }, [snapshotUpdatedAtHms, messages.length])
+
+  // Incrementa tempo decorrido a cada segundo
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setElapsedSec((s) => s + 1)
+    }, 1000)
+    return () => window.clearInterval(interval)
+  }, [])
 
   if (!enabled) {
     return null
@@ -147,163 +160,221 @@ export function AutoNarratorFeed({
       ? messages
       : messages.filter((m) => m.category === selectedCategory)
 
+  const latestMessage = messages[0]
+  const latestCategory = latestMessage ? CATEGORY_META[latestMessage.category] : null
+
   return (
     <section
-      aria-label="Lex News — Pílulas analíticas determinísticas da apuração"
+      aria-label="Lex News — Atualizações analíticas determinísticas em tempo real"
       data-testid="auto-narrator-feed"
-      className="flex flex-col h-[380px] sm:h-[400px] overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
+      className="relative overflow-hidden rounded-2xl border border-purple-500/40 bg-gradient-to-r from-purple-500/[0.04] via-transparent to-cyan-500/[0.04] p-3 sm:px-4 sm:py-3.5 shadow-[0_0_20px_rgba(168,85,247,0.12)] transition-all duration-300 dark:border-purple-400/30 dark:bg-[#0A0A0C]"
     >
-      {/* 1. Cabeçalho Limpo: Título + Ícone ⓘ com Tooltip + Pulso */}
-      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-900 text-white dark:bg-white dark:text-slate-950">
-            <Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-            <span
-              data-testid="lex-pulse-indicator"
-              className="absolute -top-1 -right-1 flex h-3 w-3"
-              title="Indicador de pulso do Lex News a cada novo snapshot"
-            >
+      {/* Linha superior de acento com gradiente roxo/ciano */}
+      <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-purple-500 via-cyan-400 to-purple-600 opacity-80" />
+
+      {/* 1. Faixa Ticker "AO VIVO": Destaque Visual, Avatar Lex e Tipografia 15-16px */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          {/* Avatar e Nome do Lex com Indicador de Pulso */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-purple-600 to-cyan-500 text-white shadow-xs">
+              <Sparkles className="h-4 w-4" aria-hidden="true" />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="font-black text-sm text-slate-900 dark:text-white">
+                Lex
+              </span>
               <span
-                className={`absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 ${
-                  pulseActive ? 'animate-ping' : 'animate-pulse'
-                }`}
-              />
-              <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
-            </span>
+                data-testid="lex-pulse-indicator"
+                className="relative flex h-2 w-2"
+                title="Indicador de atividade em tempo real do Lex"
+              >
+                <span
+                  className={`absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75 ${
+                    pulseActive ? 'animate-ping' : 'animate-pulse'
+                  }`}
+                />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-500" />
+              </span>
+            </div>
+
+            {/* Etiqueta colorida por tipo de mensagem */}
+            {latestCategory && (
+              <span
+                className={`rounded-md border px-2 py-0.5 text-[10px] font-black uppercase tracking-wider shrink-0 ${latestCategory.pillClass}`}
+              >
+                {latestCategory.shortPill}
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-1.5">
-            <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white">
-              Lex
-            </h2>
+          {/* Frase analítica com animação de entrada e tempo discreto */}
+          {latestMessage ? (
+            <div
+              key={`${latestMessage.timestamp}-${latestMessage.text.slice(0, 15)}`}
+              className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-3 animate-in fade-in slide-in-from-right-2 duration-300"
+            >
+              <p className="text-[15px] sm:text-base font-medium text-slate-800 dark:text-slate-200 leading-snug line-clamp-2 sm:line-clamp-1">
+                {renderCleanTickerContent(latestMessage.text)}
+              </p>
+              <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500 shrink-0 whitespace-nowrap">
+                há {elapsedSec < 60 ? `${elapsedSec}s` : `${Math.floor(elapsedSec / 60)}min`}
+              </span>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">Aguardando primeiros boletins...</p>
+          )}
+        </div>
 
-            {/* Ícone ⓘ discreto com Tooltip dinâmico */}
-            <div className="group relative inline-flex items-center">
-              <button
-                type="button"
-                className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none dark:text-slate-500 dark:hover:text-slate-300"
-                aria-label="Informações sobre o Lex News"
-              >
-                <Info className="h-4 w-4" strokeWidth={1.75} aria-hidden="true" />
-              </button>
-              <div className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-64 rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs leading-relaxed text-slate-200 shadow-2xl group-hover:block group-focus-within:block">
-                <p className="font-medium text-white">Síntese Determinística</p>
-                <p className="mt-1 text-slate-300">
-                  Pílulas analíticas em tempo real geradas matematicamente a partir dos dados do TSE, sem uso de modelos generativos no ciclo de apuração.
-                </p>
+        {/* Botão para Expandir / Colapsar Histórico */}
+        <div className="flex items-center justify-end gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setIsHistoryOpen((prev) => !prev)}
+            aria-expanded={isHistoryOpen}
+            className="inline-flex items-center gap-1 rounded-lg border border-purple-500/25 bg-purple-500/10 px-2.5 py-1 text-xs font-semibold text-purple-900 hover:bg-purple-500/20 dark:border-purple-500/30 dark:bg-purple-950/40 dark:text-purple-200 dark:hover:bg-purple-900/50 transition"
+          >
+            <span>{isHistoryOpen ? 'Ocultar histórico' : `Ver histórico (${messages.length})`}</span>
+            {isHistoryOpen ? (
+              <ChevronUp className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* 2. Conteúdo Expandido do Histórico e Filtros */}
+      {isHistoryOpen && (
+        <div className="mt-3.5 border-t border-slate-200/80 pt-3 dark:border-[#1F1F24]">
+          {/* Cabeçalho do Histórico com Tooltip */}
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                Pílulas Analíticas
+              </span>
+              <div className="group relative inline-flex items-center">
+                <button
+                  type="button"
+                  className="rounded-full p-0.5 text-slate-400 hover:text-slate-600 focus:outline-none dark:text-slate-500 dark:hover:text-slate-300"
+                  aria-label="Informações sobre o Lex News"
+                >
+                  <Info className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                </button>
+                <div className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-64 rounded-xl border border-slate-700 bg-slate-950 p-2.5 text-xs leading-relaxed text-slate-200 shadow-2xl group-hover:block group-focus-within:block">
+                  <p className="font-medium text-white">Síntese Determinística</p>
+                  <p className="mt-1 text-slate-300">
+                    Pílulas analíticas em tempo real geradas matematicamente a partir dos dados do TSE, sem uso de modelos generativos no ciclo de apuração.
+                  </p>
+                </div>
               </div>
             </div>
 
-            <span className="rounded-full border border-emerald-500/30 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-              Resumo ao Vivo
-            </span>
+            {snapshotUpdatedAtHms && (
+              <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-mono text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                Atualizado: {snapshotUpdatedAtHms}
+              </span>
+            )}
           </div>
-        </div>
 
-        {snapshotUpdatedAtHms && (
-          <span className="rounded-lg bg-slate-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-slate-700 dark:border dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-300">
-            {snapshotUpdatedAtHms}
-          </span>
-        )}
-      </div>
-
-      {/* 2. Filtro Rápido com Ícones Vetoriais Profissionais */}
-      <div
-        className="shrink-0 mt-3 flex flex-wrap items-center gap-1.5"
-        role="tablist"
-        aria-label="Filtrar pílulas analíticas do Lex News"
-      >
-        <button
-          type="button"
-          role="tab"
-          aria-selected={selectedCategory === 'all'}
-          onClick={() => setSelectedCategory('all')}
-          className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold transition ${
-            selectedCategory === 'all'
-              ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-950'
-              : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-300'
-          }`}
-        >
-          Todas ({messages.length})
-        </button>
-        {availableCategories.map((cat) => {
-          const meta = CATEGORY_META[cat] ?? CATEGORY_META.progress
-          const isSelected = selectedCategory === cat
-          const IconComp = meta.icon
-          return (
+          {/* Filtros de Categorias */}
+          <div
+            className="flex flex-wrap items-center gap-1.5"
+            role="tablist"
+            aria-label="Filtrar pílulas analíticas do Lex News"
+          >
             <button
-              key={cat}
               type="button"
               role="tab"
-              aria-selected={isSelected}
-              onClick={() => setSelectedCategory(cat)}
-              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
-                isSelected
+              aria-selected={selectedCategory === 'all'}
+              onClick={() => setSelectedCategory('all')}
+              className={`rounded-full border px-2.5 py-0.5 text-[11px] font-bold transition ${
+                selectedCategory === 'all'
                   ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-950'
-                  : meta.pillClass
+                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-300'
               }`}
             >
-              <IconComp className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
-              <span>{meta.shortPill}</span>
+              Todas ({messages.length})
             </button>
-          )
-        })}
-      </div>
+            {availableCategories.map((cat) => {
+              const meta = CATEGORY_META[cat] ?? CATEGORY_META.progress
+              const isSelected = selectedCategory === cat
+              const IconComp = meta.icon
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  role="tab"
+                  aria-selected={isSelected}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold transition ${
+                    isSelected
+                      ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-slate-950'
+                      : meta.pillClass
+                  }`}
+                >
+                  <IconComp className="h-3 w-3" strokeWidth={1.75} aria-hidden="true" />
+                  <span>{meta.shortPill}</span>
+                </button>
+              )
+            })}
+          </div>
 
-      {/* 3. Feed em Formato Fast Ticker com rolagem interna e scrollbar fina */}
-      <ol
-        className="mt-3 flex-1 min-h-0 space-y-2 overflow-y-auto pr-1 scrollbar-thin [scrollbar-width:thin]"
-        aria-live="polite"
-      >
-        {filteredMessages.map((msg, idx) => {
-          const meta = CATEGORY_META[msg.category] ?? CATEGORY_META.progress
-          const isLatest = idx === 0
-          const IconComp = meta.icon
+          {/* Feed com rolagem */}
+          <ol
+            className="mt-3 max-h-[340px] space-y-2 overflow-y-auto pr-1 scrollbar-thin [scrollbar-width:thin]"
+            aria-live="polite"
+          >
+            {filteredMessages.map((msg, idx) => {
+              const meta = CATEGORY_META[msg.category] ?? CATEGORY_META.progress
+              const isLatest = idx === 0
+              const IconComp = meta.icon
 
-          return (
-            <li
-              key={msg.id}
-              data-testid={`narrator-item-${msg.category}`}
-              className={`group rounded-xl border p-2.5 text-xs transition ${
-                isLatest
-                  ? 'border-slate-300 bg-slate-50 shadow-2xs dark:border-[#1F1F24] dark:bg-[#0F0F12]'
-                  : 'border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 dark:border-[#1F1F24] dark:bg-[#0F0F12]/60 dark:hover:bg-[#0F0F12]'
-              } text-slate-800 dark:text-slate-200`}
-            >
-              <div className="mb-1 flex items-center justify-between gap-1.5">
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${meta.iconBadgeClass}`}
-                    aria-hidden="true"
-                  >
-                    <IconComp className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
-                  </span>
-                  <span
-                    className={`rounded px-1.5 py-0.2 text-[10px] font-black uppercase tracking-wider ${meta.pillClass}`}
-                  >
-                    {meta.shortPill}
-                  </span>
-                  {isLatest && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Agora
-                    </span>
-                  )}
-                </div>
+              return (
+                <li
+                  key={msg.id}
+                  data-testid={`narrator-item-${msg.category}`}
+                  className={`group rounded-xl border p-2.5 text-xs transition ${
+                    isLatest
+                      ? 'border-slate-300 bg-slate-50 shadow-2xs dark:border-[#1F1F24] dark:bg-[#0F0F12]'
+                      : 'border-slate-200/80 bg-slate-50/50 hover:bg-slate-50 dark:border-[#1F1F24] dark:bg-[#0F0F12]/60 dark:hover:bg-[#0F0F12]'
+                  } text-slate-800 dark:text-slate-200`}
+                >
+                  <div className="mb-1 flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-md ${meta.iconBadgeClass}`}
+                        aria-hidden="true"
+                      >
+                        <IconComp className="h-3.5 w-3.5" strokeWidth={1.75} aria-hidden="true" />
+                      </span>
+                      <span
+                        className={`rounded px-1.5 py-0.2 text-[10px] font-black uppercase tracking-wider ${meta.pillClass}`}
+                      >
+                        {meta.shortPill}
+                      </span>
+                      {isLatest && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Agora
+                        </span>
+                      )}
+                    </div>
 
-                <time className="font-mono text-[10px] text-slate-500">
-                  {msg.timestamp}
-                </time>
-              </div>
+                    <time className="font-mono text-[10px] text-slate-500">
+                      {msg.timestamp}
+                    </time>
+                  </div>
 
-              {/* Texto enxuto em no máximo 2 linhas com destaques em negrito e sem aviso residual */}
-              <p className="line-clamp-2 text-xs font-medium leading-snug text-slate-700 dark:text-slate-300">
-                {renderCleanTickerContent(msg.text)}
-              </p>
-            </li>
-          )
-        })}
-      </ol>
+                  <p className="text-xs font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+                    {renderCleanTickerContent(msg.text)}
+                  </p>
+                </li>
+              )
+            })}
+          </ol>
+        </div>
+      )}
     </section>
   )
 }
