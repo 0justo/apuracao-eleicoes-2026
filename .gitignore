@@ -50,3 +50,6 @@ pnpm-debug.log*
 .DS_Store
 *.swp
 *.swo
+
+# Dados simulados antigos tirados do caminho (não versionar, não usar como reais)
+.simulado-antigo/
