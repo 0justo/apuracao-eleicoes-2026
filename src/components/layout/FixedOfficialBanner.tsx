@@ -8,6 +8,7 @@ import type { DisputeSnapshot } from '../../types/election'
 
 interface FixedOfficialBannerProps {
   snapshot: DisputeSnapshot | null
+  isSimulation?: boolean
   isStale: boolean
   snapshotAgeSeconds: number
   fetchError: string | null
@@ -60,13 +61,16 @@ function GitHubIcon({ className = 'h-3.5 w-3.5' }: { className?: string }) {
 
 export function FixedOfficialBanner({
   snapshot,
+  isSimulation = false,
   isStale,
   snapshotAgeSeconds,
   fetchError,
   onRefresh,
   onStopReplay,
 }: FixedOfficialBannerProps) {
-  const hms = snapshot?.generated_at_hms ?? '--:--:--'
+  // Horário da totalização do TSE; o horário do nosso servidor fica só como reserva.
+  const hms =
+    snapshot?.tse_totalization_ht || snapshot?.generated_at_hms || '--:--:--'
   const isUnderVerification = snapshot?.validation_status === 'em_verificacao'
   const isReplay = snapshot?.is_replay === true
 
@@ -79,17 +83,32 @@ export function FixedOfficialBanner({
       <div className="mx-auto flex h-10 w-full max-w-[1840px] items-center justify-between px-3 sm:px-4 lg:px-6">
         {/* Esquerda: Indicação sutil de status e horário */}
         <div className="flex items-center gap-2">
+          {/* Ponto "ao vivo" só fica verde quando os dados estão em dia */}
           <span className="relative flex h-2 w-2" aria-hidden="true">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            {!isStale && !isSimulation && (
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+            )}
+            <span
+              className={`relative inline-flex h-2 w-2 rounded-full ${
+                isSimulation ? 'bg-amber-500' : isStale ? 'bg-rose-500' : 'bg-emerald-500'
+              }`}
+            />
           </span>
           <span
             data-testid="fixed-official-banner-text"
             className="text-[11px] font-medium tracking-tight text-slate-300 sm:text-xs"
           >
-            <span className="hidden sm:inline">Resultado parcial • </span>
-            <span className="text-slate-400">Fonte: TSE</span> •{' '}
-            <span className="font-mono text-slate-100">{hms}</span>
+            {isSimulation ? (
+              <strong className="rounded bg-amber-500 px-1.5 py-0.5 text-slate-950">
+                SIMULAÇÃO — dados fictícios, não é resultado do TSE
+              </strong>
+            ) : (
+              <>
+                <span className="hidden sm:inline">Resultado parcial • </span>
+                <span className="text-slate-400">Totalização TSE às</span>{' '}
+                <span className="font-mono text-slate-100">{hms}</span>
+              </>
+            )}
           </span>
         </div>
 

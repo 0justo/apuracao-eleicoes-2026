@@ -110,11 +110,12 @@ test('Calculadora da Virada no cliente: casos de borda (0%, empate 50%, s > 100%
 })
 
 test('Snapshots de todas as disputas (Presidente + 6 Governadores) e estágios (0% -> 100%) respeitam regras inegociáveis', () => {
-  const catalog = readJson('catalog.json')
-  assert.equal(catalog.disputes.length, 7)
-
   const stages = ['0pct', '25pct', '50tie', '65pct', '88pct', '100pct']
   for (const stage of stages) {
+    // O catálogo da raiz é saída do poller (não versionada); usa o de cada estágio
+    const catalog = readJson(`stages/${stage}/catalog.json`)
+    assert.equal(catalog.disputes.length, 7)
+
     for (const item of catalog.disputes) {
       const snap = readJson(`stages/${stage}/${item.dispute_id}/latest.json`)
 
@@ -205,7 +206,8 @@ test('Fase 4 — Linha do tempo da apuração e Replay Histórico 2022 possuem s
 })
 
 test('Fase 5 — Paleta temática por candidato/partido (Vermelho para Lula, Azul para adversário, cores distintas por partido nos governadores), fotos oficiais, Agente Lex e Modo Foco', () => {
-  const catalog = readJson('catalog.json')
+  // Dados de exemplo versionados (o catalog.json/latest.json da raiz só existe com o poller rodando)
+  const catalog = readJson('stages/65pct/catalog.json')
   for (const item of catalog.disputes) {
     assert.ok(
       item.cand1_photo_url && item.cand1_photo_url.startsWith('/avatars/'),
@@ -216,7 +218,7 @@ test('Fase 5 — Paleta temática por candidato/partido (Vermelho para Lula, Azu
       `cand2_photo_url deve existir (${item.cand2_photo_url})`,
     )
 
-    const snap = readJson(`${item.dispute_id}/latest.json`)
+    const snap = readJson(`stages/65pct/${item.dispute_id}/latest.json`)
     const [cand1, cand2] = snap.candidates
     const [theme1, theme2] = getDisputePairThemes(cand1, cand2)
     assert.notEqual(
@@ -289,7 +291,12 @@ test('Fase 5 — PWA (manifest.webmanifest, sw.js), Open Graph e Relatório de T
   const ogPath = path.join(ROOT, 'public/og-apuracao-2t.svg')
   assert.ok(fs.existsSync(ogPath))
 
-  const report = readJson('load_test_report.json')
+  const report = JSON.parse(
+    fs.readFileSync(
+      path.join(ROOT, 'docs/relatorios/load_test_report.json'),
+      'utf-8',
+    ),
+  )
   assert.equal(report.error_rate_pct, 0)
   assert.equal(report.tse_requests_triggered_by_users, 0)
   assert.ok(report.total_requests >= 2000)

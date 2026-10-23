@@ -498,7 +498,7 @@ export function MarginTimelineChart({
                   }
                   return (
                     <span className="rounded-md bg-slate-200 px-2 py-0.5 font-mono text-[11px] font-bold text-slate-800 dark:bg-slate-800 dark:text-slate-200">
-                      Empate técnico
+                      Empate
                     </span>
                   )
                 })()}

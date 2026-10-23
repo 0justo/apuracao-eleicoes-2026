@@ -16,6 +16,7 @@ import type {
   ElectionCatalogSnapshot,
 } from '../../types/election'
 import type { SimulationStage } from '../../hooks/useElectionSnapshot'
+import { SIMULATION_ENABLED } from '../../utils/flags'
 import type { ThemeMode } from '../../hooks/useTheme'
 import { StateFlag } from '../common/StateFlag'
 import { getDisputePairThemes } from '../../utils/candidatePalette'
@@ -38,11 +39,13 @@ interface DisputeSelectorProps {
   onToggleFocusMode?: () => void
 }
 
+// 'live' é o dado real do TSE — nunca rotular como "65% (Padrão)".
 const STAGE_OPTIONS: { id: SimulationStage; label: string }[] = [
+  { id: 'live', label: 'Ao vivo (TSE)' },
   { id: '0pct', label: '0%' },
   { id: '25pct', label: '25%' },
   { id: '50tie', label: '50%' },
-  { id: 'live', label: '65% (Padrão)' },
+  { id: '65pct', label: '65%' },
   { id: '88pct', label: '88%' },
   { id: '100pct', label: '100%' },
 ]
@@ -66,31 +69,14 @@ export function DisputeSelector({
   const [copiedShare, setCopiedShare] = useState(false)
   const [isSimulationOpen, setIsSimulationOpen] = useState(false)
 
-  const disputes: DisputeCatalogItem[] = catalog?.disputes ?? [
-    {
-      dispute_id: 'presidente',
-      cargo_code: '1',
-      cargo_name: 'Presidente',
-      uf: 'BR',
-      uf_name: 'Brasil',
-      route_path: '/presidente',
-      snapshot_url: '/snapshots/presidente/latest.json',
-      pct_counted: 65.0,
-      cand1_name: 'LULA',
-      cand1_number: '13',
-      cand1_pct: 49.1,
-      cand2_name: 'FLAVIO BOLSONARO',
-      cand2_number: '22',
-      cand2_pct: 50.9,
-      updated_at_hms: '18:45:22',
-      validation_status: 'ok',
-    },
-  ]
+  // Sem catálogo ainda: não inventa percentuais. As abas aparecem quando o poller publicar.
+  const disputes: DisputeCatalogItem[] = catalog?.disputes ?? []
 
-  const currentDispute =
+  const currentDispute: DisputeCatalogItem | undefined =
     disputes.find((d) => d.dispute_id === selectedDisputeId) ?? disputes[0]
 
   const handleShare = async () => {
+    if (!currentDispute) return
     const shareUrl = `${window.location.origin}${currentDispute.route_path}`
     const shareTitle = `Apuração 2º Turno 2026 — ${
       currentDispute.cargo_code === '1'
@@ -235,7 +221,8 @@ export function DisputeSelector({
               )}
             </button>
 
-            {/* Botão Gaveta de Simulação (recolhível para não ocupar espaço do usuário comum) */}
+            {/* Botão Gaveta de Simulação: só em builds com VITE_ENABLE_SIMULATION=true */}
+            {SIMULATION_ENABLED && (
             <button
               type="button"
               onClick={() => setIsSimulationOpen((prev) => !prev)}
@@ -253,6 +240,7 @@ export function DisputeSelector({
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
               )}
             </button>
+            )}
 
             <button
               type="button"
@@ -338,10 +326,12 @@ export function DisputeSelector({
         {(isSimulationOpen || isReplayMode) && !isFocusMode && (
           <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-300/80 bg-amber-50/80 p-2 text-xs dark:border-amber-900/60 dark:bg-amber-950/30">
             <div className="flex flex-wrap items-center gap-1">
-              <span className="mr-1 text-[11px] font-semibold text-amber-900 dark:text-amber-300">
-                Simular estágio:
-              </span>
-              {STAGE_OPTIONS.map((opt) => {
+              {SIMULATION_ENABLED && (
+                <span className="mr-1 text-[11px] font-semibold text-amber-900 dark:text-amber-300">
+                  Simular estágio:
+                </span>
+              )}
+              {(SIMULATION_ENABLED ? STAGE_OPTIONS : []).map((opt) => {
                 const active = !isReplayMode && stage === opt.id
                 return (
                   <button
