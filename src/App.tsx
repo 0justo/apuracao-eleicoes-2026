@@ -457,25 +457,27 @@ export function App() {
               />
             )}
 
-            {/* PLACAR PRINCIPAL NO TOPO: NeutralScoreboard */}
-            <NeutralScoreboard
-              snapshot={snapshot}
-              scoreboardRef={scoreboardRef}
-            />
+            {/* Bloco Integrado: Placar Principal + Sentinela + Lex em espaçamento vertical coeso */}
+            <div className="space-y-2.5 sm:space-y-3">
+              <NeutralScoreboard
+                snapshot={snapshot}
+                scoreboardRef={scoreboardRef}
+              />
 
-            {/* Sentinela invisível para acionar o mini placar fixo sem placeholder ou layout shift */}
-            <div
-              ref={scoreboardSentinelRef}
-              className="h-px w-full pointer-events-none"
-              aria-hidden="true"
-            />
+              {/* Sentinela invisível para acionar o mini placar fixo sem placeholder ou layout shift */}
+              <div
+                ref={scoreboardSentinelRef}
+                className="h-px w-full pointer-events-none -my-px"
+                aria-hidden="true"
+              />
 
-            {/* FAIXA AO VIVO DO LEX: Logo abaixo do placar */}
-            <AutoNarratorFeed
-              messages={snapshot.narrator_messages}
-              enabled={catalog?.feature_flags?.narrator !== false}
-              snapshotUpdatedAtHms={snapshot.generated_at_hms}
-            />
+              {/* FAIXA AO VIVO DO LEX: Logo abaixo do placar */}
+              <AutoNarratorFeed
+                messages={snapshot.narrator_messages}
+                enabled={catalog?.feature_flags?.narrator !== false}
+                snapshotUpdatedAtHms={snapshot.generated_at_hms}
+              />
+            </div>
 
             {/* GRID PRINCIPAL:
                 - Desktop (min-[1100px]): 3 colunas (Calculadora + Linha do tempo na esq., Mapa no centro, Onde falta contar + Por Região na dir.)

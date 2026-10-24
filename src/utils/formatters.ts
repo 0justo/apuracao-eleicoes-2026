@@ -74,3 +74,8 @@ export function formatCompactNumber(
   }
   return formatInt(value)
 }
+
+export function formatOfficialCandidateName(name: string | null | undefined): string {
+  if (!name) return ''
+  return name.replace(/\bFLAVIO\b/g, 'FLÁVIO')
+}

@@ -115,7 +115,7 @@ export function DisputeSelector({
       cand1_name: 'LULA',
       cand1_number: '13',
       cand1_pct: 49.1,
-      cand2_name: 'FLAVIO BOLSONARO',
+      cand2_name: 'FLÁVIO BOLSONARO',
       cand2_number: '22',
       cand2_pct: 50.9,
       updated_at_hms: '18:45:22',

@@ -8,10 +8,12 @@ import {
   Vote,
 } from 'lucide-react'
 import type { DisputeSnapshot } from '../../types/election'
+import { StateFlag } from '../common/StateFlag'
 import { getDisputePairThemes } from '../../utils/candidatePalette'
 import {
   formatCompactNumber,
   formatInt,
+  formatOfficialCandidateName,
   formatPct,
   formatPP,
   formatSignedPP,
@@ -111,17 +113,24 @@ export function NeutralScoreboard({
       className="rounded-2xl border border-slate-200 bg-white p-3 shadow-xs sm:p-4 dark:border-[#1F1F24] dark:bg-[#0A0A0C]"
     >
         {/* Cabeçalho da Disputa + Componente Unificado de Ritmo e Progresso */}
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex flex-col gap-2.5 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] sm:text-xs font-semibold uppercase tracking-wide text-slate-700 dark:bg-[#0F0F12] dark:border dark:border-[#1F1F24] dark:text-slate-300">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
+              <span className="rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-black uppercase tracking-wider text-white shadow-xs dark:bg-white dark:text-slate-950">
                 2º Turno • {snapshot.cargo_name}
               </span>
-              <h2 className="text-base font-bold text-slate-900 sm:text-lg dark:text-white">
-                {snapshot.cargo_code === '1'
-                  ? 'Presidente da República — Brasil'
-                  : `Governador — ${snapshot.uf_name} (${snapshot.uf})`}
-              </h2>
+              <div className="flex items-center gap-2">
+                <StateFlag
+                  uf={snapshot.uf}
+                  className="w-7 h-5 sm:w-8 sm:h-5.5 rounded object-cover shadow-xs ring-1 ring-black/10 dark:ring-white/20"
+                  alt={`Bandeira de ${snapshot.uf_name}`}
+                />
+                <h2 className="text-xl sm:text-2xl font-extrabold text-slate-950 dark:text-white tracking-tight">
+                  {snapshot.cargo_code === '1'
+                    ? 'Presidente da República — Brasil'
+                    : `Governador — ${snapshot.uf_name} (${snapshot.uf})`}
+                </h2>
+              </div>
               <div
                 className="group relative inline-flex cursor-help"
                 tabIndex={0}
@@ -165,14 +174,10 @@ export function NeutralScoreboard({
 
       {/* Linha única de diferença para Tablet (600 a 1099px) */}
       <div
-        className={`mt-2 hidden min-[600px]:flex min-[1100px]:hidden items-center justify-between rounded-xl border px-3.5 py-1.5 text-xs font-semibold ${
-          leaderTheme
-            ? `${leaderTheme.badgeClass} ${leaderTheme.borderClass}`
-            : 'border-slate-200 bg-slate-50 dark:border-[#1F1F24] dark:bg-[#0F0F12]'
-        }`}
+        className="mt-2 hidden min-[600px]:flex min-[1100px]:hidden items-center justify-between rounded-xl border border-amber-400/60 bg-amber-500/[0.08] dark:border-amber-500/40 dark:bg-amber-950/25 px-3.5 py-1.5 text-xs font-semibold shadow-2xs"
       >
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300">
             Diferença:
           </span>
           <strong className="font-mono text-sm font-black text-slate-900 dark:text-white">
@@ -180,8 +185,8 @@ export function NeutralScoreboard({
           </strong>
         </div>
         {leader && marginPP > 0 && (
-          <span className="font-bold">
-            +{formatPP(marginPP)} para {leader.ballot_name}
+          <span className={`font-bold px-2.5 py-0.5 rounded-full text-xs ${leaderTheme?.badgeClass ?? ''}`}>
+            +{formatPP(marginPP)} para {formatOfficialCandidateName(leader.ballot_name)}
           </span>
         )}
       </div>
@@ -252,7 +257,7 @@ export function NeutralScoreboard({
                     <div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <h3 className="text-sm min-[600px]:text-base font-black leading-tight text-slate-900 dark:text-white">
-                          {cand.ballot_name}
+                          {formatOfficialCandidateName(cand.ballot_name)}
                         </h3>
                         <span
                           className={`rounded border px-1.5 py-0.2 font-mono text-[10px] font-bold ${theme.softPillClass}`}
@@ -319,47 +324,43 @@ export function NeutralScoreboard({
 
         {/* Mobile: Pílula compacta de linha única entre os candidatos (<600px) */}
         <div
-          className={`flex min-[600px]:hidden items-center justify-between rounded-full border px-3 py-1.5 text-xs font-semibold ${
-            leaderTheme
-              ? `${leaderTheme.badgeClass} ${leaderTheme.borderClass}`
-              : 'border-slate-300/80 bg-slate-50/80 dark:border-[#1F1F24] dark:bg-[#0F0F12]'
+          className={`flex min-[600px]:hidden items-center justify-between rounded-full border-2 px-3 py-1.5 text-xs font-semibold shadow-2xs transition-all duration-300 ${
+            leader
+              ? 'border-amber-400/70 bg-amber-500/10 dark:border-amber-500/50 dark:bg-amber-950/30 text-amber-950 dark:text-amber-100'
+              : 'border-slate-300/80 bg-slate-50/80 dark:border-[#1F1F24] dark:bg-[#0F0F12] text-slate-700 dark:text-slate-300'
           }`}
         >
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300/90">
               Diferença:
             </span>
-            <strong className="font-mono text-xs font-black text-slate-900 dark:text-white">
+            <strong className="font-mono text-xs font-black text-amber-950 dark:text-amber-100">
               {formatCompactNumber(voteDiff)} votos
             </strong>
           </div>
           {leader && marginPP > 0 && (
-            <span className="font-bold">
-              +{formatPP(marginPP)} {leader.ballot_name}
+            <span className="font-bold text-amber-900 dark:text-amber-200">
+              +{formatPP(marginPP)} {formatOfficialCandidateName(leader.ballot_name)}
             </span>
           )}
         </div>
 
         {/* Desktop (>=1100px): Destaque central da DIFERENÇA DE VOTOS */}
         <div
-          className={`hidden min-[1100px]:flex flex-col justify-between items-center rounded-xl border-2 p-3 text-center transition-all duration-300 relative ${
-            leader?.seq === cand1.seq
-              ? 'border-red-500/70 bg-red-500/10 shadow-xs dark:bg-red-950/40'
-              : leader?.seq === cand2.seq
-                ? 'border-blue-500/70 bg-blue-500/10 shadow-xs dark:bg-blue-950/40'
-                : 'border-slate-300/80 bg-slate-50/80 dark:border-[#1F1F24] dark:bg-[#0F0F12]'
-          } ${leaderJustChanged ? 'ring-4 ring-amber-400 animate-pulse' : ''}`}
+          className={`hidden min-[1100px]:flex flex-col justify-between items-center rounded-xl border-2 p-3 text-center transition-all duration-300 relative border-amber-400/60 bg-amber-500/[0.07] dark:border-amber-500/40 dark:bg-amber-950/25 shadow-2xs ${
+            leaderJustChanged ? 'ring-4 ring-amber-400 animate-pulse' : ''
+          }`}
         >
           {/* Seta e badge indicando o líder */}
           <div className="flex items-center gap-1.5">
             {leader?.seq === cand1.seq && (
-              <ArrowLeft className="h-4 w-4 text-red-600 dark:text-red-400 animate-pulse shrink-0" aria-hidden="true" />
+              <ArrowLeft className="h-4 w-4 text-amber-600 dark:text-amber-400 animate-pulse shrink-0" aria-hidden="true" />
             )}
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300">
               Diferença
             </span>
             {leader?.seq === cand2.seq && (
-              <ArrowRight className="h-4 w-4 text-blue-600 dark:text-blue-400 animate-pulse shrink-0" aria-hidden="true" />
+              <ArrowRight className="h-4 w-4 text-amber-600 dark:text-amber-400 animate-pulse shrink-0" aria-hidden="true" />
             )}
           </div>
 
@@ -378,7 +379,7 @@ export function NeutralScoreboard({
               <span
                 className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold ${leaderTheme.badgeClass}`}
               >
-                +{formatPP(marginPP)} para {leader.ballot_name}
+                {formatOfficialCandidateName(leader.ballot_name)} +{formatPP(marginPP)} na frente
               </span>
             ) : (
               <span className="font-mono text-[11px] font-semibold text-slate-400">
@@ -389,7 +390,7 @@ export function NeutralScoreboard({
 
           {/* Linha de Tendência */}
           {marginTrend && (
-            <div className="border-t border-slate-200/60 dark:border-white/10 pt-1.5 w-full flex items-center justify-center gap-1 font-mono text-[10px] font-bold">
+            <div className="border-t border-amber-200/40 dark:border-white/10 pt-1.5 w-full flex items-center justify-center gap-1 font-mono text-[10px] font-bold">
               <span className={marginTrend.delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
                 {marginTrend.formatted}
               </span>
@@ -464,7 +465,7 @@ export function NeutralScoreboard({
                     <div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <h3 className="text-sm min-[600px]:text-base font-black leading-tight text-slate-900 dark:text-white">
-                          {cand.ballot_name}
+                          {formatOfficialCandidateName(cand.ballot_name)}
                         </h3>
                         <span
                           className={`rounded border px-1.5 py-0.2 font-mono text-[10px] font-bold ${theme.softPillClass}`}
@@ -537,18 +538,16 @@ export function NeutralScoreboard({
           <div className="flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
             <CheckCircle2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
           </div>
-          <div className="min-w-0 flex-1">
-            <span className="block text-[8.5px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 leading-tight truncate">
+          <div className="min-w-0 flex-1 flex flex-col justify-center">
+            <span className="block text-[8.5px] sm:text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-300 leading-tight">
               Válidos
             </span>
-            <div className="flex items-baseline gap-1 flex-wrap">
-              <strong className="font-mono text-xs sm:text-base font-black text-emerald-950 dark:text-white leading-tight">
-                {formatCompactNumber(votes.valid_votes)}
-              </strong>
-              <span className="font-mono text-[9.5px] sm:text-[11px] text-emerald-700/80 dark:text-emerald-300/80 truncate">
-                ~{formatCompactNumber(remainingVotesEst)} est.
-              </span>
-            </div>
+            <strong className="font-mono text-xs sm:text-base font-black text-emerald-950 dark:text-white leading-tight">
+              {formatCompactNumber(votes.valid_votes)}
+            </strong>
+            <span className="font-mono text-[9px] sm:text-[10.5px] text-emerald-700/90 dark:text-emerald-300/90 leading-tight">
+              Faltam ~{formatCompactNumber(remainingVotesEst)}
+            </span>
           </div>
         </div>
 
@@ -557,18 +556,16 @@ export function NeutralScoreboard({
           <div className="flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-500/20 text-indigo-600 dark:text-indigo-400">
             <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
           </div>
-          <div className="min-w-0 flex-1">
-            <span className="block text-[8.5px] sm:text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 leading-tight truncate">
+          <div className="min-w-0 flex-1 flex flex-col justify-center">
+            <span className="block text-[8.5px] sm:text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300 leading-tight">
               Comparec.
             </span>
-            <div className="flex items-baseline gap-1 flex-wrap">
-              <strong className="font-mono text-xs sm:text-base font-black text-indigo-950 dark:text-white leading-tight">
-                {formatPct(electorate.pct_turnout, 1)}
-              </strong>
-              <span className="font-mono text-[9.5px] sm:text-[11px] text-indigo-700/80 dark:text-indigo-300/80 truncate">
-                abst. {formatPct(electorate.pct_abstention, 1)}
-              </span>
-            </div>
+            <strong className="font-mono text-xs sm:text-base font-black text-indigo-950 dark:text-white leading-tight">
+              {formatPct(electorate.pct_turnout, 1)}
+            </strong>
+            <span className="font-mono text-[9px] sm:text-[10.5px] text-indigo-700/90 dark:text-indigo-300/90 leading-tight">
+              Abstenção: {formatPct(electorate.pct_abstention, 1)}
+            </span>
           </div>
         </div>
 
@@ -577,20 +574,18 @@ export function NeutralScoreboard({
           <div className="flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
             <Vote className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
           </div>
-          <div className="min-w-0 flex-1">
-            <span className="block text-[8.5px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 leading-tight truncate">
+          <div className="min-w-0 flex-1 flex flex-col justify-center">
+            <span className="block text-[8.5px] sm:text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300 leading-tight">
               Urnas
             </span>
-            <div className="flex items-baseline gap-1 flex-wrap">
-              <strong className="font-mono text-xs sm:text-base font-black text-amber-950 dark:text-white leading-tight">
-                {formatPct(sections.pct_counted, 1)}
-              </strong>
-              <span className="font-mono text-[9.5px] sm:text-[11px] text-amber-700/80 dark:text-amber-300/80 truncate">
-                {remainingSections > 0
-                  ? `faltam ${formatUrnasCount(remainingSections)}`
-                  : '100%'}
-              </span>
-            </div>
+            <strong className="font-mono text-xs sm:text-base font-black text-amber-950 dark:text-white leading-tight">
+              {formatPct(sections.pct_counted, 1)}
+            </strong>
+            <span className="font-mono text-[9px] sm:text-[10.5px] text-amber-700/90 dark:text-amber-300/90 leading-tight">
+              {remainingSections > 0
+                ? `Faltam ${formatUrnasCount(remainingSections)}`
+                : '100% apurado'}
+            </span>
           </div>
         </div>
       </div>

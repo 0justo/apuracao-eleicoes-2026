@@ -89,21 +89,22 @@ const CATEGORY_META: Record<NarratorMessage['category'], CategoryConfig> = {
  * e destaca termos-chave (números, porcentagens, pontos percentuais e nomes de candidatos).
  */
 function renderCleanTickerContent(rawText: string) {
-  // Limpa explicitamente o texto residual entre parênteses
+  // Limpa explicitamente o texto residual entre parênteses e garante a grafia acentuada FLÁVIO
   const sanitized = rawText
     .replace(/\s*\(Estimativa do site, não é resultado oficial\)\.?\s*/gi, '')
+    .replace(/\bFLAVIO\b/g, 'FLÁVIO')
     .trim()
 
   // Regex para capturar porcentagens (ex: 50,4%), números formatados (ex: 1.450.000), p.p. e nomes
   const parts = sanitized.split(
-    /(\b\d{1,3}(?:\.\d{3})*(?:,\d+)?%?|\b[+-]?\d+(?:,\d+)?\s?p\.p\.|\bLula\b|\bFlávio Bolsonaro\b|\bTarcísio\b|\bPT\b|\bPL\b|\bTSE\b)/gi,
+    /(\b\d{1,3}(?:\.\d{3})*(?:,\d+)?%?|\b[+-]?\d+(?:,\d+)?\s?p\.p\.|\bLula\b|\bFlávio Bolsonaro\b|\bFLÁVIO BOLSONARO\b|\bFLÁVIO\b|\bTarcísio\b|\bPT\b|\bPL\b|\bTSE\b)/gi,
   )
 
   return parts.map((part, i) => {
     if (
       /^\d{1,3}(?:\.\d{3})*(?:,\d+)?%?$/i.test(part) ||
       /^[+-]?\d+(?:,\d+)?\s?p\.p\.$/i.test(part) ||
-      /^(?:Lula|Flávio Bolsonaro|Tarcísio|PT|PL|TSE)$/i.test(part)
+      /^(?:Lula|Flávio Bolsonaro|FLÁVIO BOLSONARO|FLÁVIO|Tarcísio|PT|PL|TSE)$/i.test(part)
     ) {
       return (
         <strong
@@ -214,7 +215,7 @@ export function AutoNarratorFeed({
               key={`${latestMessage.timestamp}-${latestMessage.text.slice(0, 15)}`}
               className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-3 animate-in fade-in slide-in-from-right-2 duration-300"
             >
-              <p className="text-[15px] sm:text-base font-medium text-slate-800 dark:text-slate-200 leading-snug line-clamp-2 sm:line-clamp-1">
+              <p className="text-[15px] sm:text-base font-medium text-slate-800 dark:text-slate-200 leading-snug line-clamp-3 sm:line-clamp-2 lg:line-clamp-1">
                 {renderCleanTickerContent(latestMessage.text)}
               </p>
               <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500 shrink-0 whitespace-nowrap">

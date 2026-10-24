@@ -114,6 +114,7 @@ function getCandidateAvatar(cand: DisputeSnapshot['candidates'][number]) {
 function cleanMessageText(text: string): string {
   return text
     .replace(/\s*\(Estimativa do site, não é resultado oficial\)\.?\s*/gi, '')
+    .replace(/\bFLAVIO\b/g, 'FLÁVIO')
     .trim()
 }
 

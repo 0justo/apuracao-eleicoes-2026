@@ -15,7 +15,11 @@ import type { SimulationStage } from '../../hooks/useElectionSnapshot'
 import type { DisputeSnapshot, LocalityDataItem } from '../../types/election'
 import { StateFlag } from '../common/StateFlag'
 import { getDisputePairThemes } from '../../utils/candidatePalette'
-import { formatPct, formatSignedPP } from '../../utils/formatters'
+import {
+  formatOfficialCandidateName,
+  formatPct,
+  formatSignedPP,
+} from '../../utils/formatters'
 import {
   type DecodedGeoFeature,
   decodeTopoJSON,
@@ -272,6 +276,76 @@ export function SwingMapSection({
       ) ?? null
     )
   }, [activeLocalities, selectedCode, activeScope])
+
+  const consolidatedLocality: LocalityDataItem = useMemo(() => {
+    const isGov = !isPresidential
+    const name = isGov ? `${snapshot.uf_name} (Consolidado)` : 'Brasil (Consolidado)'
+    const uf = isGov ? snapshot.uf : 'BR'
+    const cand1Votes2t = cand1.votes
+    const cand2Votes2t = cand2.votes
+    const cand1Pct2t = cand1.pct_valid
+    const cand2Pct2t = cand2.pct_valid
+    const cand1Votes1t = cand1.votes_1t ?? 0
+    const cand2Votes1t = cand2.votes_1t ?? 0
+    const cand1Pct1t = cand1.pct_valid_1t ?? 0
+    const cand2Pct1t = cand2.pct_valid_1t ?? 0
+    const swing1 = cand1.swing_pp
+    const swing2 = cand2.swing_pp
+    const leader1t = cand1Pct1t >= cand2Pct1t ? cand1 : cand2
+    const margin1t = Math.abs(cand1Pct1t - cand2Pct1t)
+
+    const remainingVotes =
+      snapshot.pending_summary?.total_remaining_valid_votes ??
+      snapshot.turnaround?.estimated_remaining_valid_votes_r ??
+      0
+
+    return {
+      code_tse: uf,
+      code_ibge: uf,
+      uf,
+      name,
+      is_capital: false,
+      scope_type: 'uf',
+      updated_at: snapshot.generated_at_iso,
+      total_sections: snapshot.sections.total_sections,
+      counted_sections: snapshot.sections.counted_sections,
+      pct_counted: snapshot.sections.pct_counted,
+      pct_remaining: Math.max(0, 100 - snapshot.sections.pct_counted),
+      low_reliability: snapshot.sections.pct_counted < 30,
+      total_electorate: snapshot.electorate.total_electorate,
+      turnout_votes_2t: snapshot.electorate.turnout_votes,
+      turnout_votes_1t: snapshot.electorate.turnout_1t ?? 0,
+      valid_votes_2t: snapshot.votes.valid_votes,
+      blank_votes_2t: snapshot.votes.blank_votes,
+      null_votes_2t: snapshot.votes.null_votes,
+      blank_null_rate_1t: snapshot.votes.blank_null_rate_1t ?? 0,
+      cand1_votes_2t: cand1Votes2t,
+      cand2_votes_2t: cand2Votes2t,
+      cand1_pct_2t: cand1Pct2t,
+      cand2_pct_2t: cand2Pct2t,
+      margin_2t_pp: Math.abs(cand1Pct2t - cand2Pct2t),
+      cand1_votes_1t: cand1Votes1t,
+      cand2_votes_1t: cand2Votes1t,
+      valid_votes_1t: cand1Votes1t + cand2Votes1t,
+      cand1_pct_1t: cand1Pct1t,
+      cand2_pct_1t: cand2Pct1t,
+      cand1_norm_1t: cand1Pct1t,
+      cand2_norm_1t: cand2Pct1t,
+      leader_1t_slot: cand1Pct1t > cand2Pct1t ? 1 : cand2Pct1t > cand1Pct1t ? 2 : 0,
+      leader_1t_name: formatOfficialCandidateName(leader1t.ballot_name),
+      margin_1t_pp: margin1t,
+      cand1_swing_pp: swing1,
+      cand2_swing_pp: swing2,
+      net_swing_cand1_pp: swing1,
+      estimated_remaining_valid_votes: remainingVotes,
+      changed_in_last_cycle: false,
+      delta_pct_counted_last_cycle: 0,
+      source_json_url: snapshot.source_json_url,
+      source_portal_url: 'https://resultados.tse.jus.br',
+    }
+  }, [snapshot, cand1, cand2, isPresidential])
+
+  const activeDisplayLocality = selectedLocality ?? consolidatedLocality
 
   // Resultados combinados de busca com debounce de 300ms: localidades ativas + municípios do índice nacional
   const searchResults = useMemo(() => {
@@ -653,7 +727,7 @@ export function SwingMapSection({
                 className={`inline-block h-2.5 w-2.5 rounded-full ${theme1.dotClass} ring-1 ring-white/70`}
                 aria-hidden="true"
               />
-              {cand1.ballot_name}
+              {formatOfficialCandidateName(cand1.ballot_name)}
             </button>
             <button
               type="button"
@@ -669,7 +743,7 @@ export function SwingMapSection({
                 className={`inline-block h-2.5 w-2.5 rounded-full ${theme2.dotClass} ring-1 ring-white/70`}
                 aria-hidden="true"
               />
-              {cand2.ballot_name}
+              {formatOfficialCandidateName(cand2.ballot_name)}
             </button>
           </div>
         )}
@@ -742,7 +816,18 @@ export function SwingMapSection({
         </div>
       )}
 
-      {/* Área do Mapa: max-height 60vh no celular, 70vh no tablet e 75vh no desktop */}
+      {/* 3. Card com os detalhes da localidade selecionada (Brasil consolidado por omissão ou os dados da UF clicada) */}
+      <div className="mt-3">
+        <LocalityDetailSheet
+          locality={activeDisplayLocality}
+          candidates={snapshot.candidates}
+          canZoomToMunicipalities={isPresidential && activeScope === 'uf' && activeDisplayLocality.uf !== 'BR'}
+          onZoomToUf={handleZoomToUf}
+          onClose={selectedLocality ? () => setSelectedCode(null) : undefined}
+        />
+      </div>
+
+      {/* 4. Área do Mapa: max-height 60vh no celular, 70vh no tablet e 75vh no desktop */}
       <div className="mt-3 max-h-[60vh] sm:max-h-[70vh] lg:max-h-[75vh] flex items-center justify-center overflow-hidden">
         {loadingGeo ? (
           <div className="flex h-72 w-full items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
@@ -775,8 +860,8 @@ export function SwingMapSection({
             renderMode={effectiveRenderMode}
             cand1Hex={cand1Hex}
             cand2Hex={cand2Hex}
-            cand1Name={cand1.ballot_name}
-            cand2Name={cand2.ballot_name}
+            cand1Name={formatOfficialCandidateName(cand1.ballot_name)}
+            cand2Name={formatOfficialCandidateName(cand2.ballot_name)}
             onSelectLocality={(loc) => setSelectedCode(loc.code_tse)}
             onZoomToUf={isPresidential ? handleZoomToUf : undefined}
             onResetFocus={() => {
@@ -787,7 +872,7 @@ export function SwingMapSection({
         )}
       </div>
 
-      {/* Legenda do Mapa Contínua em Gradiente Suave (abaixo do mapa) */}
+      {/* 5. Legenda do Mapa Contínua em Gradiente Suave (abaixo do mapa) */}
       <div
         data-testid="swing-map-legend"
         aria-label="Legenda cromática do mapa eleitoral"
@@ -795,13 +880,13 @@ export function SwingMapSection({
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className={`font-bold ${theme2.textAccentClass}`}>
-            ◄ {metricMode === 'live_2t' ? `Mais votos no 2ºT: ${cand2.ballot_name} (${cand2.party_acronym})` : `Maior avanço vs. 1ºT: ${cand2.ballot_name} (${cand2.party_acronym})`}
+            ◄ {metricMode === 'live_2t' ? `Mais votos no 2ºT: ${formatOfficialCandidateName(cand2.ballot_name)} (${cand2.party_acronym})` : `Maior avanço vs. 1ºT: ${formatOfficialCandidateName(cand2.ballot_name)} (${cand2.party_acronym})`}
           </span>
           <span className="font-medium text-slate-600 dark:text-slate-400">
             {metricMode === 'live_2t' ? 'Equilíbrio (50% / 50%)' : 'Centro Neutro (0,00 p.p.)'}
           </span>
           <span className={`font-bold ${theme1.textAccentClass}`}>
-            {metricMode === 'live_2t' ? `Mais votos no 2ºT: ${cand1.ballot_name} (${cand1.party_acronym})` : `Maior avanço vs. 1ºT: ${cand1.ballot_name} (${cand1.party_acronym})`} ►
+            {metricMode === 'live_2t' ? `Mais votos no 2ºT: ${formatOfficialCandidateName(cand1.ballot_name)} (${cand1.party_acronym})` : `Maior avanço vs. 1ºT: ${formatOfficialCandidateName(cand1.ballot_name)} (${cand1.party_acronym})`} ►
           </span>
         </div>
 
@@ -843,19 +928,19 @@ export function SwingMapSection({
         </div>
       </div>
 
-      {/* Cartão de Detalhes da Localidade Inspecionada (aberto por clique no mapa): Bottom sheet no celular, inline no desktop */}
+      {/* Mobile Bottom Sheet quando uma localidade é inspecionada pelo toque */}
       {selectedLocality && (
-        <>
+        <div className="sm:hidden">
           {/* Backdrop escuro no celular */}
           <div
-            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs sm:hidden"
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs"
             onClick={() => setSelectedCode(null)}
             aria-hidden="true"
           />
-          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-slate-200 bg-white p-3.5 shadow-2xl dark:border-[#1F1F24] dark:bg-[#0A0A0C] sm:relative sm:inset-auto sm:z-auto sm:mt-3 sm:max-h-none sm:overflow-visible sm:rounded-xl sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none dark:sm:bg-transparent">
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-slate-200 bg-white p-3.5 shadow-2xl dark:border-[#1F1F24] dark:bg-[#0A0A0C]">
             {/* Pílula para arrastar / fechar no celular */}
             <div
-              className="mx-auto mb-2.5 h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-700 sm:hidden cursor-pointer"
+              className="mx-auto mb-2.5 h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-700 cursor-pointer"
               onClick={() => setSelectedCode(null)}
               aria-hidden="true"
             />
@@ -867,7 +952,7 @@ export function SwingMapSection({
               onClose={() => setSelectedCode(null)}
             />
           </div>
-        </>
+        </div>
       )}
 
       {/* Em modo municipal com muitos municípios, mostra pílulas rápidas das principais cidades para toque fácil */}

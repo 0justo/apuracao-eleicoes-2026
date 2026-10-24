@@ -238,7 +238,7 @@ export function TileGridMap({
       </div>
       <p className="mt-2 text-center text-[11px] text-slate-500 dark:text-slate-400">
         Dica: toque em um quadrado para ver detalhes ou clique duas vezes (ou use
-        o botão no cartão abaixo) para abrir o mapa de municípios da UF.
+        o botão no cartão de detalhes) para abrir o mapa de municípios da UF.
       </p>
     </div>
   )
