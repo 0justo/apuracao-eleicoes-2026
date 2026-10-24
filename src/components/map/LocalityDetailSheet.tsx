@@ -9,6 +9,7 @@ import { StateFlag } from '../common/StateFlag'
 import { getDisputePairThemes } from '../../utils/candidatePalette'
 import {
   formatInt,
+  formatOfficialCandidateName,
   formatPct,
   formatSignedPP,
 } from '../../utils/formatters'
@@ -30,6 +31,20 @@ export function LocalityDetailSheet({
 }: LocalityDetailSheetProps) {
   const [cand1, cand2] = candidates
   const [c1Theme, c2Theme] = getDisputePairThemes(cand1, cand2)
+
+  const isCadu1 =
+    cand1.sqcand === '200002534001' ||
+    cand1.ballot_name.toUpperCase().includes('CADU')
+  const c1Avatar = isCadu1
+    ? '/avatars/cadu-xavier-real.jpg?v=3'
+    : cand1.photo_url || `/avatars/${cand1.sqcand}.jpg?v=3`
+
+  const isCadu2 =
+    cand2.sqcand === '200002534001' ||
+    cand2.ballot_name.toUpperCase().includes('CADU')
+  const c2Avatar = isCadu2
+    ? '/avatars/cadu-xavier-real.jpg?v=3'
+    : cand2.photo_url || `/avatars/${cand2.sqcand}.jpg?v=3`
 
   if (!locality) {
     return (
@@ -143,14 +158,20 @@ export function LocalityDetailSheet({
         {/* Candidato 1 */}
         <div className={`rounded-lg border p-2.5 ${c1Theme.borderClass} ${c1Theme.cardBgClass}`}>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <span
-                className="inline-block h-3 w-3 rounded-full"
-                style={{ backgroundColor: c1Theme.hexLight }}
-                aria-hidden="true"
+            <div className="flex items-center gap-2">
+              <img
+                src={c1Avatar}
+                alt={cand1.ballot_name}
+                onError={(e) => {
+                  const target = e.currentTarget
+                  if (!target.src.endsWith('.svg?v=3')) {
+                    target.src = `/avatars/${cand1.sqcand}.svg?v=3`
+                  }
+                }}
+                className={`h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover object-top ring-2 ring-offset-1 ring-offset-white dark:ring-offset-[#0A0A0C] shrink-0 ${c1Theme.avatarRingClass}`}
               />
               <span className="text-xs font-bold text-slate-900 dark:text-white">
-                {cand1.ballot_name} ({cand1.party_acronym} · {cand1.number})
+                {formatOfficialCandidateName(cand1.ballot_name)} ({cand1.party_acronym} · {cand1.number})
               </span>
             </div>
             <span className={`rounded border px-1.5 py-0.5 font-mono text-xs font-bold ${c1Theme.badgeClass}`}>
@@ -193,14 +214,20 @@ export function LocalityDetailSheet({
         {/* Candidato 2 */}
         <div className={`rounded-lg border p-2.5 ${c2Theme.borderClass} ${c2Theme.cardBgClass}`}>
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              <span
-                className="inline-block h-3 w-3 rounded-full"
-                style={{ backgroundColor: c2Theme.hexLight }}
-                aria-hidden="true"
+            <div className="flex items-center gap-2">
+              <img
+                src={c2Avatar}
+                alt={cand2.ballot_name}
+                onError={(e) => {
+                  const target = e.currentTarget
+                  if (!target.src.endsWith('.svg?v=3')) {
+                    target.src = `/avatars/${cand2.sqcand}.svg?v=3`
+                  }
+                }}
+                className={`h-7 w-7 sm:h-8 sm:w-8 rounded-full object-cover object-top ring-2 ring-offset-1 ring-offset-white dark:ring-offset-[#0A0A0C] shrink-0 ${c2Theme.avatarRingClass}`}
               />
               <span className="text-xs font-bold text-slate-900 dark:text-white">
-                {cand2.ballot_name} ({cand2.party_acronym} · {cand2.number})
+                {formatOfficialCandidateName(cand2.ballot_name)} ({cand2.party_acronym} · {cand2.number})
               </span>
             </div>
             <span className={`rounded border px-1.5 py-0.5 font-mono text-xs font-bold ${c2Theme.badgeClass}`}>
@@ -245,7 +272,7 @@ export function LocalityDetailSheet({
         <span>
           Mais votado no 1º turno neste local:{' '}
           <strong className="text-slate-900 dark:text-white">
-            {locality.leader_1t_name}
+            {formatOfficialCandidateName(locality.leader_1t_name)}
           </strong>{' '}
           (diferença de {formatPct(locality.margin_1t_pp).replace('%', ' p.p.')})
         </span>

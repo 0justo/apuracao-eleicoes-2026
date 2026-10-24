@@ -12,6 +12,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import type { NarratorMessage } from '../../types/election'
+import { formatOfficialCandidateName } from '../../utils/formatters'
 
 interface AutoNarratorFeedProps {
   messages: NarratorMessage[]
@@ -95,21 +96,23 @@ function escapeRegExp(value: string) {
 }
 
 function renderCleanTickerContent(rawText: string, highlightNames: string[]) {
-  // Limpa explicitamente o texto residual entre parênteses
+  // Limpa o texto residual entre parênteses e garante a grafia acentuada FLÁVIO
   const sanitized = rawText
     .replace(/\s*\(Estimativa do site, não é resultado oficial\)\.?\s*/gi, '')
+    .replace(/\bFLAVIO\b/g, 'FLÁVIO')
     .trim()
 
   // Antes: lista fixa "Lula|Flávio Bolsonaro|Tarcísio". O TSE grava "FLAVIO BOLSONARO" sem
   // acento, então só um dos dois candidatos ficava em negrito. Agora destaca os dois nomes
   // reais da disputa (inclusive Governadores).
-  const names = highlightNames.filter(Boolean).map(escapeRegExp)
+  const nomes = highlightNames.filter(Boolean).map(formatOfficialCandidateName)
+  const names = nomes.map(escapeRegExp)
   const namePattern = names.length ? `|${names.join('|')}` : ''
   const splitter = new RegExp(
     `(\\b\\d{1,3}(?:\\.\\d{3})*(?:,\\d+)?%?|\\b[+-]?\\d+(?:,\\d+)?\\s?p\\.p\\.|\\bTSE\\b${namePattern})`,
     'gi',
   )
-  const nameSet = new Set(highlightNames.map((n) => n.toLowerCase()))
+  const nameSet = new Set(nomes.map((n) => n.toLowerCase()))
   const parts = sanitized.split(splitter)
 
   return parts.map((part, i) => {
@@ -229,7 +232,7 @@ export function AutoNarratorFeed({
               key={`${latestMessage.timestamp}-${latestMessage.text.slice(0, 15)}`}
               className="min-w-0 flex-1 flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-3 animate-in fade-in slide-in-from-right-2 duration-300"
             >
-              <p className="text-[15px] sm:text-base font-medium text-slate-800 dark:text-slate-200 leading-snug line-clamp-2 sm:line-clamp-1">
+              <p className="text-[15px] sm:text-base font-medium text-slate-800 dark:text-slate-200 leading-snug line-clamp-3 sm:line-clamp-2 lg:line-clamp-1">
                 {renderCleanTickerContent(latestMessage.text, highlightNames)}
               </p>
               <span className="font-mono text-[11px] text-slate-400 dark:text-slate-500 shrink-0 whitespace-nowrap">

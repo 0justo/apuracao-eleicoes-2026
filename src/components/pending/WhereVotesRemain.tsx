@@ -13,6 +13,7 @@ import { StateFlag } from '../common/StateFlag'
 import { getDisputePairThemes } from '../../utils/candidatePalette'
 import {
   formatCompactNumber,
+  formatOfficialCandidateName,
   formatPct,
   formatPP,
 } from '../../utils/formatters'
@@ -195,29 +196,29 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
           )}
         </div>
 
-        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-          <div className={`flex items-center justify-between rounded-lg border ${theme1.borderClass} ${theme1.cardBgClass} px-2.5 py-1.5`}>
-            <div className="flex items-center gap-1.5 truncate">
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme1.barClass}`} />
-              <span className="truncate font-medium text-slate-800 dark:text-slate-200">
-                Onde {cand1.ballot_name} liderou no 1ºT:
-              </span>
+        <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+          <div
+            className={`flex flex-col items-center justify-center py-2 px-3 gap-0.5 text-center rounded-lg border ${theme1.borderClass} ${theme1.cardBgClass} w-full min-w-0`}
+          >
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-zinc-300">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${theme1.barClass}`} aria-hidden="true" />
+              <span>Onde {formatOfficialCandidateName(cand1.ballot_name)} liderou no 1ºT</span>
             </div>
-            <strong className="shrink-0 font-bold text-slate-900 dark:text-white ml-1">
+            <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight font-mono">
               {formatCompactNumber(pending.remaining_in_cand1_1t_lead)} ({formatPct(pending.pct_remaining_in_cand1_1t_lead, 0)})
-            </strong>
+            </div>
           </div>
 
-          <div className={`flex items-center justify-between rounded-lg border ${theme2.borderClass} ${theme2.cardBgClass} px-2.5 py-1.5`}>
-            <div className="flex items-center gap-1.5 truncate">
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme2.barClass}`} />
-              <span className="truncate font-medium text-slate-800 dark:text-slate-200">
-                Onde {cand2.ballot_name} liderou no 1ºT:
-              </span>
+          <div
+            className={`flex flex-col items-center justify-center py-2 px-3 gap-0.5 text-center rounded-lg border ${theme2.borderClass} ${theme2.cardBgClass} w-full min-w-0`}
+          >
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-zinc-300">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${theme2.barClass}`} aria-hidden="true" />
+              <span>Onde {formatOfficialCandidateName(cand2.ballot_name)} liderou no 1ºT</span>
             </div>
-            <strong className="shrink-0 font-bold text-slate-900 dark:text-white ml-1">
+            <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight font-mono">
               {formatCompactNumber(pending.remaining_in_cand2_1t_lead)} ({formatPct(pending.pct_remaining_in_cand2_1t_lead, 0)})
-            </strong>
+            </div>
           </div>
         </div>
       </div>
@@ -314,20 +315,20 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
               key={`${loc.uf}-${loc.code_tse}`}
               className="flex flex-col gap-1.5 rounded-xl border border-slate-200/90 bg-slate-50/70 p-2 transition hover:bg-slate-50 dark:border-[#1F1F24] dark:bg-[#0F0F12]/80 dark:hover:bg-[#0F0F12]"
             >
-              {/* Linha Superior: Bandeira + Nome com truncate + Botão Cidades + Badge de Liderança */}
+              {/* Linha Superior: Bandeira + Nome legível ("São Paulo • SP") + Badge de Liderança */}
               <div className="flex items-center justify-between gap-2 min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
                   <StateFlag
                     uf={loc.uf}
-                    className="w-7 h-5 shrink-0 rounded object-cover ring-1 ring-black/10 dark:ring-white/15 shadow-2xs"
+                    className="w-6 h-4 shrink-0 rounded object-cover ring-1 ring-black/10 dark:ring-white/15 shadow-2xs"
                     alt={`Bandeira oficial de ${loc.name} (${loc.uf})`}
                   />
-                  <div className="flex items-center gap-1.5 min-w-0">
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
                     <span
-                      className="truncate text-xs font-bold text-slate-900 dark:text-white"
-                      title={loc.name}
+                      className="text-xs font-bold text-slate-900 dark:text-white truncate"
+                      title={`${loc.name} • ${loc.uf}`}
                     >
-                      {loc.name}
+                      {loc.name} <span className="font-normal text-slate-400">• {loc.uf}</span>
                     </span>
                     {loc.low_reliability && (
                       <span
@@ -356,9 +357,15 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
                 {/* Badge de Liderança no 1º Turno */}
                 <span
                   className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${pillClass}`}
-                  title={`Líder no 1º turno: ${loc.leader_1t_name} com margem de ${formatPP(loc.margin_1t_pp)}`}
+                  title={`Líder no 1º turno: ${loc.leader_1t_name.replace(/\bFLAVIO\b/g, 'FLÁVIO')} com margem de ${formatPP(loc.margin_1t_pp)}`}
                 >
-                  <span className="truncate max-w-[80px]">{loc.leader_1t_name}</span>
+                  <span className="whitespace-nowrap font-bold">
+                    {loc.leader_1t_slot === 1
+                      ? (cand1.ballot_name.includes('LULA') ? 'LULA' : cand1.ballot_name)
+                      : loc.leader_1t_slot === 2
+                        ? (cand2.ballot_name.toUpperCase().includes('FLAVIO') || cand2.ballot_name.toUpperCase().includes('FLÁVIO') ? 'FLÁVIO' : cand2.ballot_name)
+                        : loc.leader_1t_name.replace(/\bFLAVIO\b/g, 'FLÁVIO')}
+                  </span>
                   <span className="opacity-80">+{formatPP(loc.margin_1t_pp)}</span>
                 </span>
               </div>
