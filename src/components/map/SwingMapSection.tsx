@@ -65,14 +65,12 @@ export function SwingMapSection({
   // Modo principal de métrica: 'live_2t' ("Ao Vivo 2º Turno", padrão) ou 'swing_1t' ("Variação vs. 1º Turno")
   const [metricMode, setMetricMode] = useState<MapMetricMode>('live_2t')
 
-  // Modo de visualização em Presidente: 'geo' (mapa geográfico IBGE) ou 'tile' (grade de quadrados)
-  // No celular (<640px), o padrão é 'tile' (Grade de UFs) para facilitar a leitura e toque
+  // Modo de visualização em Presidente: 'geo' (mapa geográfico IBGE, padrão em todas as telas) ou 'tile' (grade de quadrados)
   const [mapMode, setMapMode] = useState<'geo' | 'tile'>(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search)
       const q = params.get('mapMode')
       if (q === 'tile' || q === 'geo') return q
-      if (window.innerWidth < 640) return 'tile'
     }
     return 'geo'
   })
