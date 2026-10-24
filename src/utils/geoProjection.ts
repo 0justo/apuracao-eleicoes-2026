@@ -184,14 +184,16 @@ export interface ProjectedFeature {
   bboxPx: [number, number, number, number]
 }
 
-export function projectFeaturesMercator(
-  features: DecodedGeoFeature[],
-  width: number,
-  height: number,
-  padding = 18,
-): ProjectedFeature[] {
-  if (features.length === 0) return []
+export interface ProjectionBounds {
+  minX: number
+  maxX: number
+  minY: number
+  maxY: number
+}
 
+export function computeMercatorBounds(
+  features: DecodedGeoFeature[],
+): ProjectionBounds {
   let minX = Infinity
   let maxX = -Infinity
   let minY = Infinity
@@ -207,6 +209,37 @@ export function projectFeaturesMercator(
     if (x1 > maxX) maxX = x1
     if (y0 < minY) minY = y0
     if (y1 > maxY) maxY = y1
+  }
+
+  return { minX, maxX, minY, maxY }
+}
+
+export function projectFeaturesMercator(
+  features: DecodedGeoFeature[],
+  width: number,
+  height: number,
+  padding = 18,
+  referenceBounds?: ProjectionBounds,
+): ProjectedFeature[] {
+  if (features.length === 0) return []
+
+  let minX = referenceBounds?.minX ?? Infinity
+  let maxX = referenceBounds?.maxX ?? -Infinity
+  let minY = referenceBounds?.minY ?? Infinity
+  let maxY = referenceBounds?.maxY ?? -Infinity
+
+  if (!referenceBounds) {
+    for (const f of features) {
+      const [lon0, lat0, lon1, lat1] = f.bbox
+      const x0 = (lon0 * Math.PI) / 180
+      const x1 = (lon1 * Math.PI) / 180
+      const y0 = mercatorY(lat0)
+      const y1 = mercatorY(lat1)
+      if (x0 < minX) minX = x0
+      if (x1 > maxX) maxX = x1
+      if (y0 < minY) minY = y0
+      if (y1 > maxY) maxY = y1
+    }
   }
 
   const spanX = Math.max(1e-5, maxX - minX)
