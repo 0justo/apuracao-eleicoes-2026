@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Globe, Minus, Plus, RotateCcw } from 'lucide-react'
 import type { LocalityDataItem } from '../../types/election'
-import { formatInt, formatPct, formatSignedPP } from '../../utils/formatters'
+import {
+  formatInt,
+  formatOfficialCandidateName,
+  formatPct,
+  formatSignedPP,
+} from '../../utils/formatters'
 import {
   type DecodedGeoFeature,
   getDivergentSwingFill,
@@ -76,6 +81,68 @@ export function GeoChoroplethMap({
   // Estado interativo de Transformação (Zoom e Pan livre)
   const [scale, setScale] = useState<number>(1)
   const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
+  const scaleRef = useRef<number>(1)
+  const panRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+  scaleRef.current = scale
+  panRef.current = pan
+
+  const animFrameRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+    }
+  }, [])
+
+  const animateToTransform = useCallback(
+    (nextScale: number, nextPan: { x: number; y: number }, duration = 400) => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current)
+      const startScale = scaleRef.current
+      const startPan = { ...panRef.current }
+      const startTime = performance.now()
+
+      const step = (now: number) => {
+        const elapsed = now - startTime
+        const progress = Math.min(1, elapsed / duration)
+        const ease = 1 - Math.pow(1 - progress, 3)
+
+        const curScale = startScale + (nextScale - startScale) * ease
+        const curPanX = startPan.x + (nextPan.x - startPan.x) * ease
+        const curPanY = startPan.y + (nextPan.y - startPan.y) * ease
+
+        setScale(curScale)
+        setPan({ x: curPanX, y: curPanY })
+
+        if (progress < 1) {
+          animFrameRef.current = requestAnimationFrame(step)
+        } else {
+          animFrameRef.current = null
+        }
+      }
+      animFrameRef.current = requestAnimationFrame(step)
+    },
+    [],
+  )
+
+  const zoomToFeature = useCallback(
+    (feat: ProjectedFeature) => {
+      const [x0, y0, x1, y1] = feat.bboxPx
+      const cx = (x0 + x1) / 2
+      const cy = (y0 + y1) / 2
+      const bw = Math.max(x1 - x0, 20)
+      const bh = Math.max(y1 - y0, 20)
+      const targetScale = Math.min(
+        5,
+        Math.max(1.8, Math.min(MAP_WIDTH / (bw * 2.4), MAP_HEIGHT / (bh * 2.4))),
+      )
+      const targetPan = {
+        x: cx - MAP_WIDTH / 2,
+        y: cy - MAP_HEIGHT / 2,
+      }
+      animateToTransform(targetScale, targetPan, 400)
+    },
+    [animateToTransform],
+  )
 
   // Estado do Tooltip flutuante em True Black
   const [hoveredLoc, setHoveredLoc] = useState<LocalityDataItem | null>(null)
@@ -174,7 +241,7 @@ export function GeoChoroplethMap({
     [metricMode, isDark, cand1Hex, cand2Hex],
   )
 
-  // Enquadramento automático quando focusedCode é definido via busca
+  // Enquadramento automático suave quando focusedCode é definido via busca
   useEffect(() => {
     if (!focusedCode) {
       return
@@ -191,20 +258,8 @@ export function GeoChoroplethMap({
       )
     })
     if (!target) return
-
-    const [x0, y0, x1, y1] = target.bboxPx
-    const cx = (x0 + x1) / 2
-    const cy = (y0 + y1) / 2
-    const bw = Math.max(x1 - x0, 20)
-    const bh = Math.max(y1 - y0, 20)
-    const targetScale = Math.min(6, Math.max(1.8, Math.min(MAP_WIDTH / (bw * 3.2), MAP_HEIGHT / (bh * 3.2))))
-
-    setScale(targetScale)
-    setPan({
-      x: cx - MAP_WIDTH / 2,
-      y: cy - MAP_HEIGHT / 2,
-    })
-  }, [focusedCode, projected, scope])
+    zoomToFeature(target)
+  }, [focusedCode, projected, scope, zoomToFeature])
 
   // Reset de pan/zoom quando a malha de features ou o escopo muda
   useEffect(() => {
@@ -403,12 +458,11 @@ export function GeoChoroplethMap({
     }
   }, [])
 
-  // Resetar zoom para enquadramento inicial do Brasil
+  // Resetar zoom para enquadramento inicial do Brasil com transição suave
   const handleResetZoom = useCallback(() => {
-    setScale(1)
-    setPan({ x: 0, y: 0 })
+    animateToTransform(1, { x: 0, y: 0 }, 350)
     onResetFocus?.()
-  }, [onResetFocus])
+  }, [animateToTransform, onResetFocus])
 
   // Aumentar zoom (+)
   const handleZoomIn = useCallback(() => {
@@ -511,6 +565,7 @@ export function GeoChoroplethMap({
           if (loc) {
             onSelectLocality(loc)
           }
+          zoomToFeature(feat)
           return
         }
       }
@@ -738,7 +793,7 @@ export function GeoChoroplethMap({
                   style={{ backgroundColor: cand1Hex }}
                 />
                 <span className="truncate text-[11px] font-bold text-slate-200">
-                  {cand1Name}
+                  {formatOfficialCandidateName(cand1Name)}
                 </span>
                 {isCand1Leader && (
                   <span className="rounded bg-emerald-500/20 px-1 text-[9px] font-black uppercase text-emerald-400">
@@ -768,7 +823,7 @@ export function GeoChoroplethMap({
                   style={{ backgroundColor: cand2Hex }}
                 />
                 <span className="truncate text-[11px] font-bold text-slate-200">
-                  {cand2Name}
+                  {formatOfficialCandidateName(cand2Name)}
                 </span>
                 {isCand2Leader && (
                   <span className="rounded bg-emerald-500/20 px-1 text-[9px] font-black uppercase text-emerald-400">
@@ -788,7 +843,7 @@ export function GeoChoroplethMap({
 
             {metricMode === 'swing_1t' && (
               <div className="border-t border-white/10 pt-1 text-[10px] text-slate-300">
-                Variação ({perspectiveSlot === 1 ? cand1Name : cand2Name}):{' '}
+                Variação ({perspectiveSlot === 1 ? formatOfficialCandidateName(cand1Name) : formatOfficialCandidateName(cand2Name)}):{' '}
                 {formatSignedPP(
                   perspectiveSlot === 1
                     ? (hoveredLoc.cand1_swing_pp ?? hoveredLoc.net_swing_cand1_pp)
@@ -826,6 +881,13 @@ export function GeoChoroplethMap({
           className="max-h-[60vh] sm:max-h-[70vh] lg:max-h-[75vh] w-auto h-auto select-none object-contain"
         >
           <defs>
+            <filter id="brazil-live-aura" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
             <pattern
               id="map-low-reliability-hatch"
               width="8"
@@ -846,6 +908,24 @@ export function GeoChoroplethMap({
           </defs>
 
           <g>
+            {/* Contorno sutil em pulso de luz (aura esmeralda/ciano) indicando dados em tempo real */}
+            {scope === 'uf' && (
+              <g aria-hidden="true" className="pointer-events-none">
+                {projected.map((feat) => (
+                  <path
+                    key={`glow-${feat.id}`}
+                    d={feat.svgPath}
+                    fill="none"
+                    stroke={isDark ? '#06b6d4' : '#10b981'}
+                    strokeWidth={3 / Math.pow(viewBox.scale, 0.65)}
+                    strokeOpacity={isDark ? 0.45 : 0.35}
+                    filter="url(#brazil-live-aura)"
+                    className="animate-pulse"
+                  />
+                ))}
+              </g>
+            )}
+
             {projected.map((feat) => {
               const loc = findLocalityForFeature(feat)
               const fillColor = getFeatureFill(loc)
@@ -873,6 +953,7 @@ export function GeoChoroplethMap({
                     if (loc) {
                       onSelectLocality(loc)
                     }
+                    zoomToFeature(feat)
                   }}
                   onDoubleClick={() => {
                     if (scope === 'uf' && loc && loc.uf !== 'ZZ' && onZoomToUf) {
