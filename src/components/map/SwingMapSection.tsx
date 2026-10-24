@@ -171,10 +171,11 @@ export function SwingMapSection({
     }
   }, [])
 
-  // Carrega malha municipal (<uf>-mun.topo.json) e dados municipais da UF sob demanda sem piscar no polling
+  // Carrega malha municipal (<uf>-mun.topo.json ou /geo/municipios/<uf>.json) e dados municipais da UF sob demanda sem piscar no polling
   useEffect(() => {
     if (!zoomedUf || zoomedUf === 'BR' || zoomedUf === 'ZZ') {
       setMunFeatures([])
+      setPresMunLocalities([])
       loadedGeoUfRef.current = null
       return
     }
@@ -190,7 +191,11 @@ export function SwingMapSection({
     const loadMunicipalData = async () => {
       try {
         const geoPromise = needNewGeo
-          ? fetch(`/geo/mun/${ufLower}-mun.topo.json`)
+          ? fetch(`/geo/municipios/${ufLower}.json`)
+              .then((res) =>
+                res.ok ? res : fetch(`/geo/mun/${ufLower}-mun.topo.json`),
+              )
+              .catch(() => fetch(`/geo/mun/${ufLower}-mun.topo.json`))
           : Promise.resolve(null)
         const basePrefix =
           stage === 'live' ? '/snapshots' : `/snapshots/stages/${stage}`
@@ -218,12 +223,6 @@ export function SwingMapSection({
             pendingFocusCodeRef.current = null
             setSelectedCode(targetCode)
             setFocusedCode(targetCode)
-          } else if (needNewGeo) {
-            const capitalOrFirst =
-              list.find((l) => l.is_capital) ?? list[0]
-            if (capitalOrFirst) {
-              setSelectedCode(capitalOrFirst.code_tse)
-            }
           }
         } else if (!isPresidential && pendingFocusCodeRef.current) {
           const targetCode = pendingFocusCodeRef.current
@@ -246,11 +245,14 @@ export function SwingMapSection({
 
   const activeScope: 'uf' | 'mu' = zoomedUf ? 'mu' : 'uf'
   const activeLocalities: LocalityDataItem[] = useMemo(() => {
-    if (isPresidential && zoomedUf && presMunLocalities.length > 0) {
-      return presMunLocalities
+    if (isPresidential) {
+      if (presMunLocalities.length > 0) {
+        return [...presMunLocalities, ...snapshot.localities]
+      }
+      return snapshot.localities
     }
     return snapshot.localities
-  }, [isPresidential, zoomedUf, presMunLocalities, snapshot.localities])
+  }, [isPresidential, presMunLocalities, snapshot.localities])
 
   const activeFeatures = activeScope === 'uf' ? ufFeatures : munFeatures
 
@@ -411,6 +413,17 @@ export function SwingMapSection({
     }
   }, [])
 
+  const handleZoomToUf = useCallback((uf: string) => {
+    const ufUpper = uf.toUpperCase()
+    if (ufUpper === 'ZZ' || ufUpper === 'BR') return
+    setMapMode('geo')
+    setZoomedUf(ufUpper)
+    setSelectedCode(ufUpper)
+    setFocusedCode(null)
+    setSearchQuery('')
+    setDebouncedSearchQuery('')
+  }, [])
+
   // Navegação disparada exclusivamente ao clicar em uma sugestão ou pressionar Enter
   const handleSelectSearchResult = useCallback(
     (item: {
@@ -420,40 +433,37 @@ export function SwingMapSection({
       scope: 'uf' | 'mu'
     }) => {
       setMapMode('geo')
-      if (isPresidential && item.scope === 'mu' && zoomedUf !== item.uf.toUpperCase()) {
-        pendingFocusCodeRef.current = item.code_tse
-        setZoomedUf(item.uf.toUpperCase())
-      } else {
+      if (item.scope === 'uf') {
         setSelectedCode(item.code_tse)
-        setFocusedCode(item.scope === 'uf' ? item.uf : item.code_tse)
+        if (isPresidential) {
+          handleZoomToUf(item.uf)
+        } else {
+          setFocusedCode(item.uf)
+        }
+      } else if (item.scope === 'mu') {
+        if (isPresidential && zoomedUf !== item.uf.toUpperCase()) {
+          pendingFocusCodeRef.current = item.code_tse
+          setZoomedUf(item.uf.toUpperCase())
+        } else {
+          setSelectedCode(item.code_tse)
+          setFocusedCode(item.code_tse)
+        }
       }
       setSearchQuery(item.name)
       setDebouncedSearchQuery(item.name)
     },
-    [isPresidential, zoomedUf],
+    [isPresidential, zoomedUf, handleZoomToUf],
   )
-
-  const handleZoomToUf = useCallback((uf: string) => {
-    const ufUpper = uf.toUpperCase()
-    if (ufUpper === 'ZZ' || ufUpper === 'BR') return
-    setZoomedUf(ufUpper)
-    setFocusedCode(null)
-    setSearchQuery('')
-    setDebouncedSearchQuery('')
-  }, [])
 
   const handleBackToBrazil = useCallback(() => {
     setZoomedUf(null)
+    setMunFeatures([])
     setPresMunLocalities([])
     setFocusedCode(null)
-    setSelectedCode(
-      snapshot.highlighted_locality_code ??
-        snapshot.localities[0]?.code_tse ??
-        null,
-    )
+    setSelectedCode(null)
     setSearchQuery('')
     setDebouncedSearchQuery('')
-  }, [snapshot.highlighted_locality_code, snapshot.localities])
+  }, [])
 
   const highlightedLoc = useMemo(
     () =>
@@ -819,19 +829,21 @@ export function SwingMapSection({
         <LocalityDetailSheet
           locality={activeDisplayLocality}
           candidates={snapshot.candidates}
-          canZoomToMunicipalities={isPresidential && activeScope === 'uf' && activeDisplayLocality.uf !== 'BR'}
+          canZoomToMunicipalities={
+            isPresidential && !zoomedUf && activeDisplayLocality.uf !== 'BR'
+          }
           onZoomToUf={handleZoomToUf}
-          onClose={selectedLocality ? () => setSelectedCode(null) : undefined}
+          onClose={
+            selectedLocality || (isPresidential && zoomedUf)
+              ? handleBackToBrazil
+              : undefined
+          }
         />
       </div>
 
       {/* 4. Área do Mapa: max-height 60vh no celular, 70vh no tablet e 75vh no desktop */}
       <div className="mt-3 max-h-[60vh] sm:max-h-[70vh] lg:max-h-[75vh] flex items-center justify-center overflow-hidden">
-        {loadingGeo ? (
-          <div className="flex h-72 w-full items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
-            Carregando malha municipal oficial do IBGE ({zoomedUf})...
-          </div>
-        ) : activeScope === 'uf' && mapMode === 'tile' ? (
+        {activeScope === 'uf' && mapMode === 'tile' ? (
           <TileGridMap
             localities={activeLocalities}
             selectedCode={selectedLocality?.code_tse ?? null}
@@ -846,9 +858,12 @@ export function SwingMapSection({
           />
         ) : (
           <GeoChoroplethMap
-            features={activeFeatures}
+            features={isPresidential ? ufFeatures : munFeatures}
+            munFeatures={isPresidential ? munFeatures : []}
             localities={activeLocalities}
-            scope={activeScope}
+            scope={isPresidential ? 'uf' : 'mu'}
+            zoomedUf={zoomedUf}
+            loadingMun={loadingGeo}
             selectedCode={selectedLocality?.code_tse ?? null}
             highlightedCode={snapshot.highlighted_locality_code}
             focusedCode={focusedCode}
@@ -866,6 +881,7 @@ export function SwingMapSection({
               setFocusedCode(null)
               setSearchQuery('')
             }}
+            onResetZoom={isPresidential ? handleBackToBrazil : undefined}
           />
         )}
       </div>
@@ -945,7 +961,7 @@ export function SwingMapSection({
             <LocalityDetailSheet
               locality={selectedLocality}
               candidates={snapshot.candidates}
-              canZoomToMunicipalities={isPresidential && activeScope === 'uf'}
+              canZoomToMunicipalities={isPresidential && !zoomedUf}
               onZoomToUf={handleZoomToUf}
               onClose={() => setSelectedCode(null)}
             />

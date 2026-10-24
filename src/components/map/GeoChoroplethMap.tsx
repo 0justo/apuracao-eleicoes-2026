@@ -8,6 +8,7 @@ import {
   formatSignedPP,
 } from '../../utils/formatters'
 import {
+  computeMercatorBounds,
   type DecodedGeoFeature,
   getDivergentSwingFill,
   getLiveLeaderFill,
@@ -18,8 +19,11 @@ import {
 
 interface GeoChoroplethMapProps {
   features: DecodedGeoFeature[]
+  munFeatures?: DecodedGeoFeature[]
   localities: LocalityDataItem[]
   scope: 'uf' | 'mu'
+  zoomedUf?: string | null
+  loadingMun?: boolean
   selectedCode: string | null
   highlightedCode: string | null
   focusedCode?: string | null
@@ -34,6 +38,7 @@ interface GeoChoroplethMapProps {
   onSelectLocality: (loc: LocalityDataItem) => void
   onZoomToUf?: (uf: string) => void
   onResetFocus?: () => void
+  onResetZoom?: () => void
 }
 
 const MAP_WIDTH = 680
@@ -58,8 +63,11 @@ function pointInProjectedRing(
 
 export function GeoChoroplethMap({
   features,
+  munFeatures = [],
   localities,
   scope,
+  zoomedUf = null,
+  loadingMun = false,
   selectedCode,
   highlightedCode,
   focusedCode = null,
@@ -74,6 +82,7 @@ export function GeoChoroplethMap({
   onSelectLocality,
   onZoomToUf,
   onResetFocus,
+  onResetZoom,
 }: GeoChoroplethMapProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
@@ -132,14 +141,14 @@ export function GeoChoroplethMap({
       const bw = Math.max(x1 - x0, 20)
       const bh = Math.max(y1 - y0, 20)
       const targetScale = Math.min(
-        5,
-        Math.max(1.8, Math.min(MAP_WIDTH / (bw * 2.4), MAP_HEIGHT / (bh * 2.4))),
+        7.5,
+        Math.max(1.8, Math.min(MAP_WIDTH / (bw * 1.35), MAP_HEIGHT / (bh * 1.35))),
       )
       const targetPan = {
         x: cx - MAP_WIDTH / 2,
         y: cy - MAP_HEIGHT / 2,
       }
-      animateToTransform(targetScale, targetPan, 400)
+      animateToTransform(targetScale, targetPan, 420)
     },
     [animateToTransform],
   )
@@ -196,10 +205,44 @@ export function GeoChoroplethMap({
     return m
   }, [localities])
 
+  const brazilBounds = useMemo(
+    () => (scope === 'uf' ? computeMercatorBounds(features) : undefined),
+    [features, scope],
+  )
+
   const projected: ProjectedFeature[] = useMemo(
     () => projectFeaturesMercator(features, MAP_WIDTH, MAP_HEIGHT, 22),
     [features],
   )
+
+  const projectedMun: ProjectedFeature[] = useMemo(() => {
+    if (!munFeatures || munFeatures.length === 0) return []
+    if (scope === 'uf') {
+      return projectFeaturesMercator(
+        munFeatures,
+        MAP_WIDTH,
+        MAP_HEIGHT,
+        22,
+        brazilBounds,
+      )
+    }
+    return []
+  }, [munFeatures, scope, brazilBounds])
+
+  const [munVisible, setMunVisible] = useState(false)
+  useEffect(() => {
+    if (projectedMun.length > 0) {
+      const raf = requestAnimationFrame(() => {
+        setMunVisible(true)
+      })
+      return () => {
+        cancelAnimationFrame(raf)
+        setMunVisible(false)
+      }
+    } else {
+      setMunVisible(false)
+    }
+  }, [projectedMun.length])
 
   const findLocalityForFeature = useMemo(
     () =>
@@ -213,6 +256,16 @@ export function GeoChoroplethMap({
         return localityMap.get(codeTse) ?? localityMap.get(ibgeProp)
       },
     [localityMap, scope],
+  )
+
+  const findLocalityForMunFeature = useMemo(
+    () =>
+      (feat: ProjectedFeature): LocalityDataItem | undefined => {
+        const codeTse = String(feat.properties.code_tse ?? feat.id).toUpperCase()
+        const ibgeProp = String(feat.properties.code_ibge ?? '')
+        return localityMap.get(codeTse) ?? localityMap.get(ibgeProp)
+      },
+    [localityMap],
   )
 
   const getFeatureFill = useMemo(
@@ -257,16 +310,52 @@ export function GeoChoroplethMap({
         ibgeProp === norm
       )
     })
+    if (target) {
+      zoomToFeature(target)
+      return
+    }
+    const targetMun = projectedMun.find((feat) => {
+      const codeTse = String(feat.properties.code_tse ?? feat.id).toUpperCase()
+      const ibgeProp = String(feat.properties.code_ibge ?? '').toUpperCase()
+      return codeTse === norm || ibgeProp === norm
+    })
+    if (targetMun) {
+      zoomToFeature(targetMun)
+    }
+  }, [focusedCode, projected, projectedMun, scope, zoomToFeature])
+
+  // Auto-zoom suave (fitBounds) quando zoomedUf é definido
+  useEffect(() => {
+    if (!zoomedUf) {
+      return
+    }
+    const norm = zoomedUf.toUpperCase()
+    const target = projected.find((feat) => {
+      const ufProp = String(feat.properties.uf ?? feat.id).toUpperCase()
+      return ufProp === norm
+    })
     if (!target) return
     zoomToFeature(target)
-  }, [focusedCode, projected, scope, zoomToFeature])
+  }, [zoomedUf, projected, zoomToFeature])
 
-  // Reset de pan/zoom quando a malha de features ou o escopo muda
+  // Retorno suave ao Brasil quando zoomedUf é redefinido para null
+  const prevZoomedUfRef = useRef<string | null>(zoomedUf ?? null)
   useEffect(() => {
-    setScale(1)
-    setPan({ x: 0, y: 0 })
-    setHoveredLoc(null)
-  }, [scope, features])
+    if (prevZoomedUfRef.current && !zoomedUf) {
+      animateToTransform(1, { x: 0, y: 0 }, 380)
+      setHoveredLoc(null)
+    }
+    prevZoomedUfRef.current = zoomedUf ?? null
+  }, [zoomedUf, animateToTransform])
+
+  // Reset de pan/zoom quando o escopo muda (apenas se não houver zoomedUf)
+  useEffect(() => {
+    if (!zoomedUf) {
+      setScale(1)
+      setPan({ x: 0, y: 0 })
+      setHoveredLoc(null)
+    }
+  }, [scope, features, zoomedUf])
 
   // Cálculo da ViewBox derivada de scale e pan
   const viewBox = useMemo(() => {
@@ -369,6 +458,15 @@ export function GeoChoroplethMap({
 
   const handlePointerMove = useCallback(
     (e: React.PointerEvent<HTMLDivElement>) => {
+      // 1. Atualização imediata da posição do cursor para o Tooltip estar sempre ativo
+      if (containerRef.current) {
+        const rect = containerRef.current.getBoundingClientRect()
+        setTooltipPos({
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        })
+      }
+
       if (!activePointersRef.current.has(e.pointerId)) return
       const prev = activePointersRef.current.get(e.pointerId)!
       activePointersRef.current.set(e.pointerId, {
@@ -438,18 +536,19 @@ export function GeoChoroplethMap({
           })
         }
       }
-
-      // Atualiza posição do Tooltip
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect()
-        setTooltipPos({
-          x: e.clientX - rect.left,
-          y: e.clientY - rect.top,
-        })
-      }
     },
     [scale, showTwoFingerHint],
   )
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect()
+      setTooltipPos({
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top,
+      })
+    }
+  }, [])
 
   const handlePointerUp = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     activePointersRef.current.delete(e.pointerId)
@@ -458,11 +557,13 @@ export function GeoChoroplethMap({
     }
   }, [])
 
-  // Resetar zoom para enquadramento inicial do Brasil com transição suave
+  // Resetar zoom para enquadramento inicial do Brasil com transição suave e limpeza de memória
   const handleResetZoom = useCallback(() => {
-    animateToTransform(1, { x: 0, y: 0 }, 350)
+    animateToTransform(1, { x: 0, y: 0 }, 380)
+    setHoveredLoc(null)
     onResetFocus?.()
-  }, [animateToTransform, onResetFocus])
+    onResetZoom?.()
+  }, [animateToTransform, onResetFocus, onResetZoom])
 
   // Aumentar zoom (+)
   const handleZoomIn = useCallback(() => {
@@ -533,11 +634,43 @@ export function GeoChoroplethMap({
         ctx.stroke()
       }
     }
+
+    if (projectedMun.length > 0) {
+      for (const feat of projectedMun) {
+        const loc = findLocalityForMunFeature(feat)
+        const fill = getFeatureFill(loc)
+        const isSelected = loc && selectedCode === loc.code_tse
+
+        ctx.beginPath()
+        for (const ring of feat.projectedRings) {
+          ring.forEach(([x, y], idx) => {
+            if (idx === 0) ctx.moveTo(x, y)
+            else ctx.lineTo(x, y)
+          })
+          ctx.closePath()
+        }
+        ctx.fillStyle = fill
+        ctx.fill()
+
+        ctx.strokeStyle = isSelected
+          ? isDark
+            ? '#ffffff'
+            : '#0f172a'
+          : isDark
+            ? 'rgba(15, 23, 42, 0.75)'
+            : 'rgba(255, 255, 255, 0.75)'
+        ctx.lineWidth = (isSelected ? 2.0 : 0.45) / viewBox.scale
+        ctx.stroke()
+      }
+    }
+
     ctx.restore()
   }, [
     renderMode,
     projected,
+    projectedMun,
     findLocalityForFeature,
+    findLocalityForMunFeature,
     getFeatureFill,
     selectedCode,
     isDark,
@@ -556,6 +689,22 @@ export function GeoChoroplethMap({
     const px = viewBox.vx + (e.clientX - rect.left) * scaleX
     const py = viewBox.vy + (e.clientY - rect.top) * scaleY
 
+    if (projectedMun.length > 0) {
+      for (const feat of projectedMun) {
+        const [x0, y0, x1, y1] = feat.bboxPx
+        if (px < x0 || px > x1 || py < y0 || py > y1) continue
+        for (const ring of feat.projectedRings) {
+          if (pointInProjectedRing(px, py, ring)) {
+            const loc = findLocalityForMunFeature(feat)
+            if (loc) {
+              onSelectLocality(loc)
+            }
+            return
+          }
+        }
+      }
+    }
+
     for (const feat of projected) {
       const [x0, y0, x1, y1] = feat.bboxPx
       if (px < x0 || px > x1 || py < y0 || py > y1) continue
@@ -564,6 +713,9 @@ export function GeoChoroplethMap({
           const loc = findLocalityForFeature(feat)
           if (loc) {
             onSelectLocality(loc)
+            if (scope === 'uf' && loc.uf !== 'ZZ' && loc.uf !== 'BR' && onZoomToUf) {
+              onZoomToUf(loc.uf)
+            }
           }
           zoomToFeature(feat)
           return
@@ -585,6 +737,20 @@ export function GeoChoroplethMap({
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     })
+
+    if (projectedMun.length > 0) {
+      for (const feat of projectedMun) {
+        const [x0, y0, x1, y1] = feat.bboxPx
+        if (px < x0 || px > x1 || py < y0 || py > y1) continue
+        for (const ring of feat.projectedRings) {
+          if (pointInProjectedRing(px, py, ring)) {
+            const loc = findLocalityForMunFeature(feat)
+            setHoveredLoc(loc ?? null)
+            return
+          }
+        }
+      }
+    }
 
     for (const feat of projected) {
       const [x0, y0, x1, y1] = feat.bboxPx
@@ -639,6 +805,8 @@ export function GeoChoroplethMap({
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
       onPointerLeave={() => setHoveredLoc(null)}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={() => setHoveredLoc(null)}
       className="relative mx-auto w-full max-h-[60vh] sm:max-h-[70vh] lg:max-h-[75vh] overflow-hidden rounded-xl border border-slate-200/80 bg-slate-100/40 select-none touch-pan-y dark:border-[#1F1F24] dark:bg-[#0F0F12] flex items-center justify-center"
       style={{ cursor: isDraggingRef.current ? 'grabbing' : 'grab' }}
     >
@@ -652,6 +820,21 @@ export function GeoChoroplethMap({
           <div className="rounded-xl border border-white/20 bg-slate-950/95 px-4 py-2.5 text-center text-xs font-semibold text-white shadow-2xl">
             Use dois dedos para mover o mapa
           </div>
+        </div>
+      )}
+
+      {/* Indicador sutil de carregamento de municípios sob demanda */}
+      {loadingMun && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 z-30 inline-flex items-center gap-2 rounded-full border border-slate-700/80 bg-slate-950/90 px-3.5 py-1.5 text-xs font-medium text-slate-200 shadow-xl backdrop-blur-md"
+        >
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 animate-ping" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          </span>
+          <span>Carregando municípios de {zoomedUf}...</span>
         </div>
       )}
 
@@ -851,7 +1034,7 @@ export function GeoChoroplethMap({
           <g>
             {/* Contorno sutil em pulso de luz (aura esmeralda/ciano) indicando dados em tempo real */}
             {scope === 'uf' && (
-              <g aria-hidden="true" className="pointer-events-none">
+              <g aria-hidden="true" className="pointer-events-none" pointerEvents="none">
                 {projected.map((feat) => (
                   <path
                     key={`glow-${feat.id}`}
@@ -861,7 +1044,8 @@ export function GeoChoroplethMap({
                     strokeWidth={3 / Math.pow(viewBox.scale, 0.65)}
                     strokeOpacity={isDark ? 0.45 : 0.35}
                     filter="url(#brazil-live-aura)"
-                    className="animate-pulse"
+                    className="animate-pulse pointer-events-none"
+                    pointerEvents="none"
                   />
                 ))}
               </g>
@@ -893,6 +1077,9 @@ export function GeoChoroplethMap({
                     if (dragDistanceRef.current > 6) return
                     if (loc) {
                       onSelectLocality(loc)
+                      if (scope === 'uf' && loc.uf !== 'ZZ' && loc.uf !== 'BR' && onZoomToUf) {
+                        onZoomToUf(loc.uf)
+                      }
                     }
                     zoomToFeature(feat)
                   }}
@@ -901,7 +1088,34 @@ export function GeoChoroplethMap({
                       onZoomToUf(loc.uf)
                     }
                   }}
-                  onPointerEnter={() => setHoveredLoc(loc ?? null)}
+                  onPointerEnter={(e) => {
+                    setHoveredLoc(loc ?? null)
+                    if (containerRef.current) {
+                      const rect = containerRef.current.getBoundingClientRect()
+                      setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                    }
+                  }}
+                  onPointerMove={(e) => {
+                    if (containerRef.current) {
+                      const rect = containerRef.current.getBoundingClientRect()
+                      setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                    }
+                  }}
+                  onPointerLeave={() => setHoveredLoc(null)}
+                  onMouseEnter={(e) => {
+                    setHoveredLoc(loc ?? null)
+                    if (containerRef.current) {
+                      const rect = containerRef.current.getBoundingClientRect()
+                      setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                    }
+                  }}
+                  onMouseMove={(e) => {
+                    if (containerRef.current) {
+                      const rect = containerRef.current.getBoundingClientRect()
+                      setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                    }
+                  }}
+                  onMouseLeave={() => setHoveredLoc(null)}
                   className="cursor-pointer"
                 >
                   <path
@@ -952,10 +1166,119 @@ export function GeoChoroplethMap({
                 </g>
               )
             })}
+
+            {/* Camada detalhada de municípios (sob demanda / Zoom Semântico) com transição suave de opacidade */}
+            {projectedMun.length > 0 && (
+              <g
+                data-testid="municipalities-layer"
+                className="transition-opacity duration-500 ease-out"
+                style={{
+                  opacity: munVisible ? 1 : 0,
+                  pointerEvents: munVisible ? 'auto' : 'none',
+                }}
+              >
+                {projectedMun.map((feat) => {
+                  const loc = findLocalityForMunFeature(feat)
+                  const fillColor = getFeatureFill(loc)
+                  const isSelected =
+                    loc && selectedCode === loc.code_tse
+                  const isHighlighted =
+                    loc &&
+                    (highlightedCode === loc.code_tse ||
+                      loc.changed_in_last_cycle)
+                  const hasRecentChange = Boolean(loc?.changed_in_last_cycle)
+                  const codeAttr = String(feat.properties.code_tse ?? feat.id)
+
+                  return (
+                    <g
+                      key={`mun-${feat.id}`}
+                      data-testid={`geo-mun-feature-${codeAttr}`}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (dragDistanceRef.current > 6) return
+                        if (loc) {
+                          onSelectLocality(loc)
+                        }
+                      }}
+                      onPointerEnter={(e) => {
+                        setHoveredLoc(loc ?? null)
+                        if (containerRef.current) {
+                          const rect = containerRef.current.getBoundingClientRect()
+                          setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                        }
+                      }}
+                      onPointerMove={(e) => {
+                        if (containerRef.current) {
+                          const rect = containerRef.current.getBoundingClientRect()
+                          setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                        }
+                      }}
+                      onPointerLeave={() => setHoveredLoc(null)}
+                      onMouseEnter={(e) => {
+                        setHoveredLoc(loc ?? null)
+                        if (containerRef.current) {
+                          const rect = containerRef.current.getBoundingClientRect()
+                          setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                        }
+                      }}
+                      onMouseMove={(e) => {
+                        if (containerRef.current) {
+                          const rect = containerRef.current.getBoundingClientRect()
+                          setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top })
+                        }
+                      }}
+                      onMouseLeave={() => setHoveredLoc(null)}
+                      className="cursor-pointer"
+                    >
+                      <path
+                        d={feat.svgPath}
+                        fill={fillColor}
+                        fillOpacity={loc?.low_reliability ? 0.72 : 1}
+                        stroke={
+                          isSelected
+                            ? isDark
+                              ? '#ffffff'
+                              : '#0f172a'
+                            : hasRecentChange
+                              ? '#f59e0b'
+                              : isHighlighted
+                                ? '#f59e0b'
+                                : isDark
+                                  ? 'rgba(15, 23, 42, 0.75)'
+                                  : 'rgba(255, 255, 255, 0.75)'
+                        }
+                        strokeWidth={
+                          (isSelected
+                            ? 2.2
+                            : hasRecentChange
+                              ? 1.8
+                              : isHighlighted
+                                ? 1.4
+                                : 0.45) / Math.pow(viewBox.scale, 0.65)
+                        }
+                        style={{
+                          transition:
+                            'fill 350ms cubic-bezier(0.22, 1, 0.36, 1), stroke-width 180ms ease',
+                        }}
+                        className="hover:brightness-110"
+                      />
+
+                      {loc?.low_reliability && (
+                        <path
+                          d={feat.svgPath}
+                          fill="url(#map-low-reliability-hatch)"
+                          pointerEvents="none"
+                        />
+                      )}
+                    </g>
+                  )
+                })}
+              </g>
+            )}
           </g>
 
           {/* Rótulos das UFs ou capitais */}
-          <g pointerEvents="none">
+          <g pointerEvents="none" className="pointer-events-none">
             {projected.map((feat) => {
               const loc = findLocalityForFeature(feat)
               const isSelected =
@@ -982,12 +1305,40 @@ export function GeoChoroplethMap({
                   fontSize={fontSize}
                   textAnchor="middle"
                   dominantBaseline="central"
-                  className="fill-slate-950 font-sans font-extrabold drop-shadow-[0_1px_2px_rgba(255,255,255,0.85)] dark:fill-white dark:drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
+                  pointerEvents="none"
+                  className="fill-slate-950 font-sans font-extrabold drop-shadow-[0_1px_2px_rgba(255,255,255,0.85)] dark:fill-white dark:drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] pointer-events-none"
                 >
                   {label}
                 </text>
               )
             })}
+
+            {/* Rótulos dos municípios carregados sob demanda */}
+            {projectedMun.length > 0 &&
+              projectedMun.map((feat) => {
+                const loc = findLocalityForMunFeature(feat)
+                const isSelected = loc && selectedCode === loc.code_tse
+                if (!loc?.is_capital && !isSelected) {
+                  return null
+                }
+                const label = String(feat.properties.name ?? loc?.name ?? '')
+                const [cx, cy] = feat.centroidPx
+                const fontSize = Math.max(5.5, 9 / Math.pow(viewBox.scale, 0.65))
+                return (
+                  <text
+                    key={`lbl-mun-${feat.id}`}
+                    x={cx}
+                    y={cy}
+                    fontSize={fontSize}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    pointerEvents="none"
+                    className="fill-slate-950 font-sans font-extrabold drop-shadow-[0_1px_2px_rgba(255,255,255,0.9)] dark:fill-white dark:drop-shadow-[0_1px_2px_rgba(0,0,0,0.95)] pointer-events-none"
+                  >
+                    {label}
+                  </text>
+                )
+              })}
           </g>
         </svg>
       )}
