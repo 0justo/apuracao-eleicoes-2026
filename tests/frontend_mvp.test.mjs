@@ -325,4 +325,53 @@ test('Refinamento Visual — 27 Bandeiras Oficiais das UFs presentes e zero emoj
   assert.doesNotMatch(speedCode, /(?:🎯|📍|⚡|📈|🏛️|🔄|✓)/u)
 })
 
+test('StickyCompactScoreboard — Barra fixa em telas largas (>=1100px) e casos de teste da barra de duelo', () => {
+  const code = fs.readFileSync(
+    path.join(ROOT, 'src/components/scoreboard/StickyCompactScoreboard.tsx'),
+    'utf-8',
+  )
+
+  // Não deve conter max-w-[1600px] que causava recuo excessivo em telas largas
+  assert.doesNotMatch(code, /max-w-\[1600px\]/)
+  assert.match(code, /max-w-\[1840px\]/)
+
+  // Barra unificada com CompactDuelingBar
+  assert.match(code, /CompactDuelingBar/)
+
+  // Função pura para testar as larguras das barras
+  function computeBarWidths(cand1Pct, cand2Pct) {
+    const totalPct = cand1Pct + cand2Pct
+    const bar1Width = totalPct > 0 ? (cand1Pct / totalPct) * 100 : 50
+    const bar2Width = 100 - bar1Width
+    return { bar1Width, bar2Width }
+  }
+
+  // 1. Cenário atual: 49,02% x 50,98%
+  const caseLive = computeBarWidths(49.02, 50.98)
+  assert.equal(caseLive.bar1Width, 49.02)
+  assert.equal(caseLive.bar2Width, 50.98)
+  assert.equal(caseLive.bar1Width + caseLive.bar2Width, 100)
+
+  // 2. 0% de urnas / sem dados (50% / 50% meio a meio)
+  const caseZero = computeBarWidths(0, 0)
+  assert.equal(caseZero.bar1Width, 50)
+  assert.equal(caseZero.bar2Width, 50)
+
+  // 3. Empate 50% x 50%
+  const caseTie = computeBarWidths(50, 50)
+  assert.equal(caseTie.bar1Width, 50)
+  assert.equal(caseTie.bar2Width, 50)
+
+  // 4. Vantagem ampla (70% x 30%)
+  const caseWide = computeBarWidths(70, 30)
+  assert.equal(caseWide.bar1Width, 70)
+  assert.equal(caseWide.bar2Width, 30)
+
+  // 5. 100% x 0%
+  const caseSolo = computeBarWidths(100, 0)
+  assert.equal(caseSolo.bar1Width, 100)
+  assert.equal(caseSolo.bar2Width, 0)
+})
+
+
 

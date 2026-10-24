@@ -62,9 +62,15 @@ export function SwingMapSection({
   const [metricMode, setMetricMode] = useState<MapMetricMode>('live_2t')
 
   // Modo de visualização em Presidente: 'geo' (mapa geográfico IBGE) ou 'tile' (grade de quadrados)
+  // No celular (<640px), o padrão é 'tile' (Grade de UFs) para facilitar a leitura e toque
   const [mapMode, setMapMode] = useState<'geo' | 'tile'>(() => {
-    const params = new URLSearchParams(window.location.search)
-    return params.get('mapMode') === 'tile' ? 'tile' : 'geo'
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const q = params.get('mapMode')
+      if (q === 'tile' || q === 'geo') return q
+      if (window.innerWidth < 640) return 'tile'
+    }
+    return 'geo'
   })
 
   // Perspectiva numérica exibida nos rótulos (1 = Candidato 1, 2 = Candidato 2)
@@ -93,15 +99,8 @@ export function SwingMapSection({
   // Renderizador: SVG vetorial por padrão para permitir zoom suave por viewBox
   const [renderOverride, setRenderOverride] = useState<'auto' | 'svg' | 'canvas'>('svg')
 
-  // Local selecionado no cartão superior, código focado com zoom e busca
-  const [selectedCode, setSelectedCode] = useState<string | null>(() => {
-    if (isPresidential) return null
-    return (
-      snapshot.highlighted_locality_code ??
-      snapshot.localities[0]?.code_tse ??
-      null
-    )
-  })
+  // Local selecionado no cartão inferior (aberto sob clique no mapa)
+  const [selectedCode, setSelectedCode] = useState<string | null>(null)
   const [focusedCode, setFocusedCode] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>('')
@@ -131,13 +130,7 @@ export function SwingMapSection({
     } else {
       setZoomedUf(snapshot.uf.toUpperCase())
     }
-    setSelectedCode(
-      isPresidential
-        ? null
-        : (snapshot.highlighted_locality_code ??
-            snapshot.localities[0]?.code_tse ??
-            null),
-    )
+    setSelectedCode(null)
     setFocusedCode(null)
     setSearchQuery('')
   }, [
@@ -266,92 +259,19 @@ export function SwingMapSection({
         : 'svg'
       : renderOverride
 
-  const nationalLocality: LocalityDataItem = useMemo(() => {
-    const c1 = snapshot.candidates[0]
-    const c2 = snapshot.candidates[1]
-    const c1Votes = c1.votes
-    const c2Votes = c2.votes
-    const validVotes = snapshot.votes.valid_votes || (c1Votes + c2Votes)
-    const c1Pct = validVotes > 0 ? (c1Votes / validVotes) * 100 : 0
-    const c2Pct = validVotes > 0 ? (c2Votes / validVotes) * 100 : 0
-    const margin = Math.abs(c1Pct - c2Pct)
-    const pctCounted = snapshot.sections.pct_counted
-
-    return {
-      code_tse: 'BR',
-      code_ibge: '00',
-      uf: 'BR',
-      name: 'Brasil (Total Nacional)',
-      is_capital: false,
-      scope_type: 'uf',
-      updated_at: snapshot.generated_at_hms,
-      total_sections: snapshot.sections.total_sections,
-      counted_sections: snapshot.sections.counted_sections,
-      pct_counted: pctCounted,
-      pct_remaining: Math.max(0, 100 - pctCounted),
-      low_reliability: pctCounted < 30,
-      total_electorate: snapshot.electorate.total_electorate,
-      turnout_votes_2t: snapshot.electorate.turnout_votes,
-      turnout_votes_1t: snapshot.electorate.turnout_1t,
-      valid_votes_2t: snapshot.votes.valid_votes,
-      blank_votes_2t: snapshot.votes.blank_votes,
-      null_votes_2t: snapshot.votes.null_votes,
-      blank_null_rate_1t: snapshot.votes.blank_null_rate_1t,
-      cand1_votes_2t: c1Votes,
-      cand2_votes_2t: c2Votes,
-      cand1_pct_2t: c1Pct,
-      cand2_pct_2t: c2Pct,
-      margin_2t_pp: margin,
-      cand1_votes_1t: c1.votes_1t ?? 0,
-      cand2_votes_1t: c2.votes_1t ?? 0,
-      valid_votes_1t: (c1.votes_1t ?? 0) + (c2.votes_1t ?? 0),
-      cand1_pct_1t: c1.pct_valid_1t ?? 0,
-      cand2_pct_1t: c2.pct_valid_1t ?? 0,
-      cand1_norm_1t: c1.pct_two_cand_1t ?? 0,
-      cand2_norm_1t: c2.pct_two_cand_1t ?? 0,
-      leader_1t_slot: (c1.votes_1t ?? 0) >= (c2.votes_1t ?? 0) ? 1 : 2,
-      leader_1t_name: (c1.votes_1t ?? 0) >= (c2.votes_1t ?? 0) ? c1.ballot_name : c2.ballot_name,
-      margin_1t_pp: Math.abs((c1.pct_valid_1t ?? 0) - (c2.pct_valid_1t ?? 0)),
-      cand1_swing_pp: c1.swing_pp ?? null,
-      cand2_swing_pp: c2.swing_pp ?? null,
-      net_swing_cand1_pp: c1.swing_pp ?? null,
-      estimated_remaining_valid_votes: snapshot.pending_summary.total_remaining_valid_votes,
-      changed_in_last_cycle: false,
-      delta_pct_counted_last_cycle: 0,
-      source_json_url: snapshot.source_json_url,
-      source_portal_url: snapshot.source_portal_url,
-    }
-  }, [snapshot])
-
   const selectedLocality: LocalityDataItem | null = useMemo(() => {
-    if (activeLocalities.length === 0) {
-      return isPresidential && activeScope === 'uf' ? nationalLocality : null
+    if (!selectedCode || selectedCode === 'BR') {
+      return null
     }
-    if (selectedCode) {
-      const found = activeLocalities.find(
+    return (
+      activeLocalities.find(
         (l) =>
           l.code_tse.toUpperCase() === selectedCode.toUpperCase() ||
           (activeScope === 'uf' &&
             l.uf.toUpperCase() === selectedCode.toUpperCase()),
-      )
-      if (found) return found
-    }
-    if (isPresidential && activeScope === 'uf' && !selectedCode) {
-      return nationalLocality
-    }
-    return (
-      activeLocalities.find(
-        (l) => l.code_tse === snapshot.highlighted_locality_code,
-      ) ?? activeLocalities[0]
+      ) ?? null
     )
-  }, [
-    activeLocalities,
-    selectedCode,
-    activeScope,
-    isPresidential,
-    nationalLocality,
-    snapshot.highlighted_locality_code,
-  ])
+  }, [activeLocalities, selectedCode, activeScope])
 
   // Resultados combinados de busca com debounce de 300ms: localidades ativas + municípios do índice nacional
   const searchResults = useMemo(() => {
@@ -668,7 +588,7 @@ export function SwingMapSection({
                 : `Pesquisar município em ${zoomedUf}...`
             }
             aria-label="Buscar localidade no mapa com zoom automático"
-            className="w-full rounded-xl border border-slate-300 bg-white py-1.5 pr-8 pl-8 text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-100 dark:focus:border-white"
+            className="w-full rounded-xl border border-slate-300 bg-white py-1.5 pr-8 pl-8 text-base sm:text-xs text-slate-900 placeholder:text-slate-400 focus:border-slate-900 focus:outline-none dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-100 dark:focus:border-white"
           />
           {(searchQuery || focusedCode) && (
             <button
@@ -787,15 +707,7 @@ export function SwingMapSection({
         </div>
       )}
 
-      {/* Cartão de Detalhes da Localidade Selecionada (posicionado no topo, logo acima do mapa) */}
-      <div className="mt-3">
-        <LocalityDetailSheet
-          locality={selectedLocality}
-          candidates={snapshot.candidates}
-          canZoomToMunicipalities={isPresidential && activeScope === 'uf'}
-          onZoomToUf={handleZoomToUf}
-        />
-      </div>
+
 
       {/* Barra de Breadcrumb e Retorno ao Brasil ao visualizar municípios de um estado */}
       {isPresidential && zoomedUf && (
@@ -830,10 +742,10 @@ export function SwingMapSection({
         </div>
       )}
 
-      {/* Área do Mapa (Largura total no celular) */}
-      <div className="mt-3">
+      {/* Área do Mapa: max-height 60vh no celular, 70vh no tablet e 75vh no desktop */}
+      <div className="mt-3 max-h-[60vh] sm:max-h-[70vh] lg:max-h-[75vh] flex items-center justify-center overflow-hidden">
         {loadingGeo ? (
-          <div className="flex h-72 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+          <div className="flex h-72 w-full items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
             Carregando malha municipal oficial do IBGE ({zoomedUf})...
           </div>
         ) : activeScope === 'uf' && mapMode === 'tile' ? (
@@ -893,7 +805,7 @@ export function SwingMapSection({
           </span>
         </div>
 
-        {/* Barra de Gradiente Contínuo */}
+        {/* Barra de Gradiente Contínuo com Intensidade */}
         <div className="mt-2 flex flex-col gap-1">
           <div
             className="h-3 w-full rounded-full border border-slate-300/80 shadow-2xs dark:border-slate-700"
@@ -910,16 +822,53 @@ export function SwingMapSection({
           </div>
         </div>
 
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 pt-1.5 text-[10px] text-slate-500 dark:border-slate-700/70 dark:text-slate-400">
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              className="low-reliability-hatch inline-block h-3 w-5 rounded-xs border border-dashed border-slate-400 bg-slate-200 dark:bg-slate-700"
-              aria-hidden="true"
-            />
-            Locais tracejados indicam início de apuração (&lt;30% das urnas) • Fonte: Malha IBGE / TSE
-          </span>
+        <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 pt-2 text-[10px] text-slate-500 dark:border-slate-700/70 dark:text-slate-400">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="inline-block h-3 w-5 rounded-xs border border-slate-400 bg-slate-200 dark:border-slate-600 dark:bg-[#334155]"
+                aria-hidden="true"
+              />
+              <span>Cinza: sem dados ainda (0% apurado)</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span
+                className="low-reliability-hatch inline-block h-3 w-5 rounded-xs border border-dashed border-slate-400 bg-slate-200 dark:bg-slate-700"
+                aria-hidden="true"
+              />
+              <span>Tracejado: início de apuração (&lt;30% das urnas)</span>
+            </span>
+          </div>
+          <span>Fonte: Malha IBGE / TSE</span>
         </div>
       </div>
+
+      {/* Cartão de Detalhes da Localidade Inspecionada (aberto por clique no mapa): Bottom sheet no celular, inline no desktop */}
+      {selectedLocality && (
+        <>
+          {/* Backdrop escuro no celular */}
+          <div
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs sm:hidden"
+            onClick={() => setSelectedCode(null)}
+            aria-hidden="true"
+          />
+          <div className="fixed inset-x-0 bottom-0 z-50 max-h-[85vh] overflow-y-auto rounded-t-2xl border-t border-slate-200 bg-white p-3.5 shadow-2xl dark:border-[#1F1F24] dark:bg-[#0A0A0C] sm:relative sm:inset-auto sm:z-auto sm:mt-3 sm:max-h-none sm:overflow-visible sm:rounded-xl sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none dark:sm:bg-transparent">
+            {/* Pílula para arrastar / fechar no celular */}
+            <div
+              className="mx-auto mb-2.5 h-1.5 w-12 rounded-full bg-slate-300 dark:bg-slate-700 sm:hidden cursor-pointer"
+              onClick={() => setSelectedCode(null)}
+              aria-hidden="true"
+            />
+            <LocalityDetailSheet
+              locality={selectedLocality}
+              candidates={snapshot.candidates}
+              canZoomToMunicipalities={isPresidential && activeScope === 'uf'}
+              onZoomToUf={handleZoomToUf}
+              onClose={() => setSelectedCode(null)}
+            />
+          </div>
+        </>
+      )}
 
       {/* Em modo municipal com muitos municípios, mostra pílulas rápidas das principais cidades para toque fácil */}
       {activeScope === 'mu' && activeLocalities.length > 1 && (
