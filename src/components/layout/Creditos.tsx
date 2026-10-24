@@ -10,7 +10,7 @@ export const CRIADORES = [
     github: { usuario: 'lulkabral', url: 'https://github.com/lulkabral' },
   },
   {
-    nome: 'Justo',
+    nome: 'Carlos Eduardo',
     x: { usuario: '1njusto', url: 'https://x.com/1njusto' },
     github: { usuario: '0justo', url: 'https://github.com/0justo' },
   },
@@ -162,7 +162,7 @@ export function CreatorsMenu() {
 
 /** Linha discreta de créditos no fim do rodapé. */
 export function CreditsLine() {
-  const [luan, justo] = CRIADORES
+  const [luan, carlos] = CRIADORES
   const link = 'underline-offset-2 hover:text-slate-900 hover:underline dark:hover:text-slate-200'
   return (
     <p
@@ -174,8 +174,8 @@ export function CreditsLine() {
         {luan.nome} (@{luan.x.usuario})
       </a>{' '}
       e{' '}
-      <a href={justo.x.url} {...linkExterno} className={link}>
-        {justo.nome} (@{justo.x.usuario})
+      <a href={carlos.x.url} {...linkExterno} className={link}>
+        {carlos.nome} (@{carlos.x.usuario})
       </a>{' '}
       •{' '}
       <a href={REPO_URL} {...linkExterno} className={link}>

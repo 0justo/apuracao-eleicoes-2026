@@ -15,6 +15,7 @@ const { formatInt, formatPct, formatPP, formatSignedPP } = await jiti.import(
 )
 const {
   decodeTopoJSON,
+  computeMercatorBounds,
   projectFeaturesMercator,
   getDivergentSwingFill,
 } = await jiti.import('../src/utils/geoProjection.ts')
@@ -371,6 +372,55 @@ test('StickyCompactScoreboard — Barra fixa em telas largas (>=1100px) e casos 
   const caseSolo = computeBarWidths(100, 0)
   assert.equal(caseSolo.bar1Width, 100)
   assert.equal(caseSolo.bar2Width, 0)
+})
+
+test('Zoom Semântico — Projeção alinhada de municípios no sistema de coordenadas do Brasil e carregamento sob demanda', () => {
+  const brUfPath = path.join(GEO_DIR, 'br-ufs.topo.json')
+  const brTopo = JSON.parse(fs.readFileSync(brUfPath, 'utf-8'))
+  const decodedUfs = decodeTopoJSON(brTopo, 'ufs')
+  const brazilBounds = computeMercatorBounds(decodedUfs)
+
+  assert.ok(brazilBounds.minX < brazilBounds.maxX)
+  assert.ok(brazilBounds.minY < brazilBounds.maxY)
+
+  // Projeção do mapa macro do Brasil
+  const projectedUfs = projectFeaturesMercator(decodedUfs, 680, 540, 22)
+  const ceUf = projectedUfs.find((u) => u.properties.uf === 'CE')
+  assert.ok(ceUf, 'UF CE deve existir nas features projetadas')
+
+  // Malha de municípios sob demanda do Ceará
+  const ceMunPath = path.join(GEO_DIR, 'mun/ce-mun.topo.json')
+  assert.ok(fs.existsSync(ceMunPath), 'public/geo/mun/ce-mun.topo.json deve existir')
+  const ceTopo = JSON.parse(fs.readFileSync(ceMunPath, 'utf-8'))
+  const decodedCeMun = decodeTopoJSON(ceTopo, 'municipios')
+  assert.equal(decodedCeMun.length, 184, 'Ceará possui 184 municípios')
+
+  // Projeção dos municípios usando as coordenadas de referência do Brasil (fitBounds pixel-perfect)
+  const projectedCeMun = projectFeaturesMercator(decodedCeMun, 680, 540, 22, brazilBounds)
+  assert.equal(projectedCeMun.length, 184)
+
+  // Todos os municípios do Ceará devem estar contidos na proximidade da bounding box do Ceará
+  const [ceX0, ceY0, ceX1, ceY1] = ceUf.bboxPx
+  for (const m of projectedCeMun) {
+    const [cx, cy] = m.centroidPx
+    assert.ok(
+      cx >= ceX0 - 2 && cx <= ceX1 + 2,
+      `Centróide X de ${m.properties.name} (${cx}) deve estar contido em CE [${ceX0}, ${ceX1}]`,
+    )
+    assert.ok(
+      cy >= ceY0 - 2 && cy <= ceY1 + 2,
+      `Centróide Y de ${m.properties.name} (${cy}) deve estar contido em CE [${ceY0}, ${ceY1}]`,
+    )
+  }
+
+  // Verifica que o código fonte do mapa inclui a camada e transição de municípios
+  const geoMapCode = fs.readFileSync(
+    path.join(ROOT, 'src/components/map/GeoChoroplethMap.tsx'),
+    'utf-8',
+  )
+  assert.match(geoMapCode, /municipalities-layer/)
+  assert.match(geoMapCode, /transition-opacity/)
+  assert.match(geoMapCode, /onResetZoom/)
 })
 
 
