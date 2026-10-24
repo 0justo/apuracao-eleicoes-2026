@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react'
 import { CountdownPre17h } from './components/layout/CountdownPre17h'
+import { CreditsLine } from './components/layout/Creditos'
 import { DisputeSelector } from './components/layout/DisputeSelector'
 import { FixedOfficialBanner } from './components/layout/FixedOfficialBanner'
 import { SwingMapSection } from './components/map/SwingMapSection'
@@ -661,6 +662,9 @@ export function App() {
               )}
             </div>
           </div>
+
+          {/* Créditos discretos (nomes e links em src/components/layout/Creditos.tsx) */}
+          <CreditsLine />
         </div>
       </footer>
     </div>
