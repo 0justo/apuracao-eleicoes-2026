@@ -13,6 +13,7 @@ import { StateFlag } from '../common/StateFlag'
 import { getDisputePairThemes } from '../../utils/candidatePalette'
 import {
   formatCompactNumber,
+  formatOfficialCandidateName,
   formatPct,
   formatPP,
 } from '../../utils/formatters'
@@ -196,28 +197,28 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
         </div>
 
         <div className="mt-2.5 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-          <div className={`flex items-center justify-between rounded-lg border ${theme1.borderClass} ${theme1.cardBgClass} px-3 py-2 min-w-0`}>
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme1.barClass}`} />
-              <span className="font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                {cand1.ballot_name.includes('LULA') ? 'LULA' : cand1.ballot_name} no 1ºT
-              </span>
+          <div
+            className={`flex flex-col items-center justify-center py-2 px-3 gap-0.5 text-center rounded-lg border ${theme1.borderClass} ${theme1.cardBgClass} w-full min-w-0`}
+          >
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-zinc-300">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${theme1.barClass}`} aria-hidden="true" />
+              <span>{cand1.ballot_name.includes('LULA') ? 'LULA' : formatOfficialCandidateName(cand1.ballot_name)} no 1ºT</span>
             </div>
-            <strong className="shrink-0 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap ml-2">
+            <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight font-mono">
               {formatCompactNumber(pending.remaining_in_cand1_1t_lead)} ({formatPct(pending.pct_remaining_in_cand1_1t_lead, 0)})
-            </strong>
+            </div>
           </div>
 
-          <div className={`flex items-center justify-between rounded-lg border ${theme2.borderClass} ${theme2.cardBgClass} px-3 py-2 min-w-0`}>
-            <div className="flex items-center gap-1.5 min-w-0">
-              <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${theme2.barClass}`} />
-              <span className="font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                {cand2.ballot_name.toUpperCase().includes('FLAVIO') || cand2.ballot_name.toUpperCase().includes('FLÁVIO') ? 'FLÁVIO' : cand2.ballot_name} no 1ºT
-              </span>
+          <div
+            className={`flex flex-col items-center justify-center py-2 px-3 gap-0.5 text-center rounded-lg border ${theme2.borderClass} ${theme2.cardBgClass} w-full min-w-0`}
+          >
+            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700 dark:text-zinc-300">
+              <span className={`h-2 w-2 shrink-0 rounded-full ${theme2.barClass}`} aria-hidden="true" />
+              <span>{cand2.ballot_name.toUpperCase().includes('FLAVIO') || cand2.ballot_name.toUpperCase().includes('FLÁVIO') ? 'FLÁVIO' : formatOfficialCandidateName(cand2.ballot_name)} no 1ºT</span>
             </div>
-            <strong className="shrink-0 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap ml-2">
+            <div className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white tracking-tight font-mono">
               {formatCompactNumber(pending.remaining_in_cand2_1t_lead)} ({formatPct(pending.pct_remaining_in_cand2_1t_lead, 0)})
-            </strong>
+            </div>
           </div>
         </div>
       </div>
