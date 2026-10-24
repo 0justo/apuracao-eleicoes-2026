@@ -6,6 +6,8 @@ import {
   HelpCircle,
   Info,
   RotateCcw,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react'
 import type { DisputeSnapshot } from '../../types/election'
 import { getDisputePairThemes } from '../../utils/candidatePalette'
@@ -25,6 +27,8 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
   const [turnoutAdjustmentPct, setTurnoutAdjustmentPct] = useState<number>(0)
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false)
   const [isSimulateOpen, setIsSimulateOpen] = useState<boolean>(false)
+  const [isDetailsOpen, setIsDetailsOpen] = useState<boolean>(false)
+  const [isDifficultyInfoOpen, setIsDifficultyInfoOpen] = useState<boolean>(false)
   const [cand1, cand2] = snapshot.candidates
   const [theme1, theme2] = getDisputePairThemes(cand1, cand2)
 
@@ -198,8 +202,53 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
           {turnaround.neutral_message}
         </p>
 
-        {/* 3. Barra Visual Simples: Régua Limpa de Dificuldade */}
-        <div className="mt-4">
+        <div className="mt-4 relative">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+              Escala de Dificuldade da Meta
+            </span>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsDifficultyInfoOpen(!isDifficultyInfoOpen)}
+                className="inline-flex items-center gap-1 rounded-md p-1 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 focus:outline-none"
+                aria-label="Entenda as zonas de dificuldade da Calculadora"
+                aria-expanded={isDifficultyInfoOpen}
+              >
+                <Info className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              {isDifficultyInfoOpen && (
+                <div
+                  role="dialog"
+                  aria-label="Explicação das zonas de dificuldade"
+                  className="absolute right-0 bottom-full mb-2 z-40 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-[#1F1F24] dark:bg-[#0F0F12] text-xs space-y-2 text-slate-700 dark:text-slate-200"
+                >
+                  <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#1F1F24] pb-1.5">
+                    <span className="font-bold text-slate-900 dark:text-white">Escala da Virada</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsDifficultyInfoOpen(false)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                      aria-label="Fechar"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="space-y-1.5 text-[11px] leading-relaxed">
+                    <p>
+                      <strong className="text-emerald-600 dark:text-emerald-400">Fácil (&lt;50%):</strong> O candidato líder já está à frente ou precisa de menos da metade dos votos restantes para manter a liderança.
+                    </p>
+                    <p>
+                      <strong className="text-amber-600 dark:text-amber-400">Disputado (50% a 60%):</strong> Cenário competitivo. O candidato precisa de um desempenho superior ao do 1º turno nas urnas restantes.
+                    </p>
+                    <p>
+                      <strong className="text-rose-600 dark:text-rose-400">Difícil (&gt;60%):</strong> Cenário complexo. Depende de votação atípica em colégios eleitorais ainda não apurados para reverter o placar.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
           <div className="relative h-3 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
             {/* Zonas Coloridas */}
             <div className="absolute inset-0 flex">
@@ -207,31 +256,31 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
               <div
                 className="h-full bg-emerald-500/35 dark:bg-emerald-500/25"
                 style={{ width: '50%' }}
-                title="Fácil: precisa de menos de 50% dos votos restantes"
+                aria-label="Zona Fácil: menos de 50% dos votos restantes"
               />
               {/* Disputado: 50% a 60% */}
               <div
                 className="h-full bg-amber-500/45 dark:bg-amber-500/35"
                 style={{ width: '10%' }}
-                title="Disputado: precisa entre 50% e 60% dos votos restantes"
+                aria-label="Zona Disputada: entre 50% e 60% dos votos restantes"
               />
               {/* Difícil: 60% a 100% */}
               <div
                 className="h-full bg-rose-500/35 dark:bg-rose-500/25"
                 style={{ width: '40%' }}
-                title="Difícil: precisa de mais de 60% dos votos restantes"
+                aria-label="Zona Difícil: mais de 60% dos votos restantes"
               />
             </div>
 
             {/* Linha divisória de 50% */}
             <div
               className="absolute inset-y-0 left-1/2 z-10 w-0.5 bg-slate-900 dark:bg-white"
-              title="Equilíbrio (50%)"
+              aria-hidden="true"
             />
             {/* Linha divisória de 60% */}
             <div
               className="absolute inset-y-0 left-[60%] z-10 w-0.5 bg-slate-500/60 dark:bg-slate-400/60"
-              title="Limite Disputado (60%)"
+              aria-hidden="true"
             />
 
             {/* Ponteiro indicador da porcentagem necessária */}
@@ -259,155 +308,179 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
               Difícil (&gt;60%)
             </span>
           </div>
-        </div>
-      </div>
 
-      {/* 4. Três Cartões com Destaques Visuais Distintos (Líder, Válidos Restantes, Meta da Virada) */}
-      <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-3">
-        {/* 1. Diferença atual (Destaque na cor do Líder) */}
-        <div className={`rounded-xl border p-3 shadow-xs transition overflow-hidden ${leaderTheme.borderClass} ${leaderTheme.cardBgClass}`}>
-          <span className={`block text-xs font-medium ${leaderTheme.textAccentClass}`}>
-            Diferença atual
-          </span>
-          <div className="mt-1">
-            <strong
-              data-testid="turnaround-var-v"
-              className={`block text-xl font-bold leading-tight ${leaderTheme.textAccentClass}`}
+          {/* Botão Discreto de Expandir / Colapsar Detalhes */}
+          <div className="mt-3.5 flex justify-end border-t border-slate-200/80 pt-2.5 dark:border-[#1F1F24]">
+            <button
+              type="button"
+              data-testid="toggle-turnaround-details-btn"
+              onClick={() => setIsDetailsOpen((prev) => !prev)}
+              aria-expanded={isDetailsOpen}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
             >
-              {formatCompactNumber(turnaround.vote_difference)}
-            </strong>
-            <span className="block text-[11px] opacity-75 truncate font-mono">
-              {formatInt(turnaround.vote_difference)} votos
-            </span>
-          </div>
-          <p className="mt-1.5 text-[11px] leading-snug opacity-85">
-            {turnaround.leading_candidate_name ?? 'Líder'} à frente por{' '}
-            <strong className="font-bold">
-              {formatNumberComma(turnaround.margin_pp)} p.p.
-            </strong>
-          </p>
-        </div>
-
-        {/* 2. Votos válidos restantes (Destaque em Âmbar/Dourado) */}
-        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.05] p-3 shadow-xs transition overflow-hidden dark:border-amber-500/25 dark:bg-amber-500/[0.05]">
-          <span className="block text-xs font-medium text-amber-700 dark:text-amber-400">
-            Votos válidos restantes
-          </span>
-          <div className="mt-1">
-            <strong
-              data-testid="turnaround-var-r"
-              className="block text-xl font-bold leading-tight text-amber-700 dark:text-amber-300"
-            >
-              {formatCompactNumber(turnaround.estimated_remaining_valid_votes_r)}
-            </strong>
-            <span className="block text-[11px] opacity-75 truncate font-mono text-amber-700 dark:text-amber-400">
-              {formatInt(turnaround.estimated_remaining_valid_votes_r)} est.
-            </span>
-          </div>
-          <p className="mt-1.5 text-[11px] leading-snug text-amber-700/80 dark:text-amber-400/80">
-            Estimativa de urnas pendentes
-          </p>
-        </div>
-
-        {/* 3. Meta para a virada (Destaque na cor do Candidato que busca a virada) */}
-        <div className={`rounded-xl border p-3 shadow-xs transition overflow-hidden ${trailingTheme.borderClass} ${trailingTheme.cardBgClass}`}>
-          <span className={`block text-xs font-medium ${trailingTheme.textAccentClass}`}>
-            Meta para a virada
-          </span>
-          <div className="mt-1">
-            <strong
-              data-testid="turnaround-var-a"
-              className={`block text-xl font-bold leading-tight ${trailingTheme.textAccentClass}`}
-            >
-              {sVal !== null && sVal > 100
-                ? 'Irreversível'
-                : formatCompactNumber(turnaround.needed_votes_absolute)}
-            </strong>
-            <span className="block text-[11px] opacity-75 truncate font-mono">
-              {sVal !== null && sVal > 100
-                ? '> 100% dos restantes'
-                : `${formatInt(turnaround.needed_votes_absolute)} votos`}
-            </span>
-          </div>
-          <p className="mt-1.5 text-[11px] leading-snug opacity-85">
-            {turnaround.trailing_candidate_name ?? '2º colocado'} precisa somar
-          </p>
-        </div>
-      </div>
-
-      {/* 5. Painel Expansível Discreto: Simulação de Abstenção / Comparecimento */}
-      <div className="mt-3 border-t border-slate-200/80 pt-2.5 dark:border-[#1F1F24]">
-        <button
-          type="button"
-          data-testid="toggle-simulate-turnout-btn"
-          onClick={() => setIsSimulateOpen(!isSimulateOpen)}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          <span>⚙️ Simular abstenção / comparecimento</span>
-          {turnoutAdjustmentPct !== 0 && (
-            <span className="rounded bg-slate-200 px-1.5 py-0.2 font-mono text-[10px] font-bold text-slate-900 dark:bg-slate-700 dark:text-white">
-              {turnoutAdjustmentPct > 0 ? `+${turnoutAdjustmentPct}%` : `${turnoutAdjustmentPct}%`}
-            </span>
-          )}
-          {isSimulateOpen ? (
-            <ChevronUp className="h-3.5 w-3.5 text-slate-400" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
-          )}
-        </button>
-
-        {isSimulateOpen && (
-          <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <label
-                htmlFor="turnout-adjustment-slider"
-                className="text-xs font-semibold text-slate-800 dark:text-slate-200"
-              >
-                Ajuste de comparecimento vs 1ºT:{' '}
-                <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-xs font-bold text-slate-900 dark:bg-slate-800 dark:text-white">
-                  {turnoutAdjustmentPct > 0
-                    ? `+${turnoutAdjustmentPct}%`
-                    : `${turnoutAdjustmentPct}%`}
-                </span>
-              </label>
-
-              {turnoutAdjustmentPct !== 0 && (
-                <button
-                  type="button"
-                  onClick={() => setTurnoutAdjustmentPct(0)}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 underline hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-                >
-                  <RotateCcw className="h-3 w-3" aria-hidden="true" />
-                  Restaurar padrão
-                </button>
+              <span>{isDetailsOpen ? 'Ocultar detalhes' : 'Ver detalhes'}</span>
+              {isDetailsOpen ? (
+                <ChevronUp className="h-3.5 w-3.5" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5" />
               )}
-            </div>
-
-            <div className="mt-2 flex items-center gap-2.5">
-              <span className="text-[10px] font-medium text-slate-500">-20%</span>
-              <input
-                id="turnout-adjustment-slider"
-                data-testid="turnout-adjustment-slider"
-                type="range"
-                min={-20}
-                max={10}
-                step={1}
-                value={turnoutAdjustmentPct}
-                onChange={(e) => setTurnoutAdjustmentPct(Number(e.target.value))}
-                className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-300 accent-slate-900 dark:bg-slate-700 dark:accent-white"
-                aria-label="Ajustar comparecimento esperado em relação ao 1º turno"
-              />
-              <span className="text-[10px] font-medium text-slate-500">+10%</span>
-            </div>
-
-            <p className="mt-1.5 text-[11px] text-slate-600 dark:text-slate-400">
-              Comparecimento esperado:{' '}
-              <strong>{formatCompactNumber(turnaround.expected_turnout_total)}</strong> ({formatInt(turnaround.expected_turnout_total)}) votos
-              (1ºT: <strong>{formatCompactNumber(snapshot.electorate.turnout_1t)}</strong>).
-            </p>
+            </button>
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Conteúdo Expandido: 3 Cartões de Métricas + Simulação de Comparecimento */}
+      {isDetailsOpen && (
+        <div className="mt-3.5 space-y-3 transition-all duration-300">
+          {/* 4. Três Cartões com Destaques Visuais Distintos (Líder, Válidos Restantes, Meta da Virada) */}
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3 sm:gap-3">
+            {/* 1. Diferença atual (Destaque na cor do Líder) */}
+            <div className={`rounded-xl border p-3 shadow-xs transition overflow-hidden ${leaderTheme.borderClass} ${leaderTheme.cardBgClass}`}>
+              <span className={`block text-xs font-medium ${leaderTheme.textAccentClass}`}>
+                Diferença atual
+              </span>
+              <div className="mt-1">
+                <strong
+                  data-testid="turnaround-var-v"
+                  className={`block text-xl font-bold leading-tight ${leaderTheme.textAccentClass}`}
+                >
+                  {formatCompactNumber(turnaround.vote_difference)}
+                </strong>
+                <span className="block text-[11px] opacity-75 truncate font-mono">
+                  {formatInt(turnaround.vote_difference)} votos
+                </span>
+              </div>
+              <p className="mt-1.5 text-[11px] leading-snug opacity-85">
+                {turnaround.leading_candidate_name ?? 'Líder'} à frente por{' '}
+                <strong className="font-bold">
+                  {formatNumberComma(turnaround.margin_pp)} p.p.
+                </strong>
+              </p>
+            </div>
+
+            {/* 2. Votos válidos restantes (Destaque em Âmbar/Dourado) */}
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.05] p-3 shadow-xs transition overflow-hidden dark:border-amber-500/25 dark:bg-amber-500/[0.05]">
+              <span className="block text-xs font-medium text-amber-700 dark:text-amber-400">
+                Votos válidos restantes
+              </span>
+              <div className="mt-1">
+                <strong
+                  data-testid="turnaround-var-r"
+                  className="block text-xl font-bold leading-tight text-amber-700 dark:text-amber-300"
+                >
+                  {formatCompactNumber(turnaround.estimated_remaining_valid_votes_r)}
+                </strong>
+                <span className="block text-[11px] opacity-75 truncate font-mono text-amber-700 dark:text-amber-400">
+                  {formatInt(turnaround.estimated_remaining_valid_votes_r)} est.
+                </span>
+              </div>
+              <p className="mt-1.5 text-[11px] leading-snug text-amber-700/80 dark:text-amber-400/80">
+                Estimativa de urnas pendentes
+              </p>
+            </div>
+
+            {/* 3. Meta para a virada (Destaque na cor do Candidato que busca a virada) */}
+            <div className={`rounded-xl border p-3 shadow-xs transition overflow-hidden ${trailingTheme.borderClass} ${trailingTheme.cardBgClass}`}>
+              <span className={`block text-xs font-medium ${trailingTheme.textAccentClass}`}>
+                Meta para a virada
+              </span>
+              <div className="mt-1">
+                <strong
+                  data-testid="turnaround-var-a"
+                  className={`block text-xl font-bold leading-tight ${trailingTheme.textAccentClass}`}
+                >
+                  {sVal !== null && sVal > 100
+                    ? 'Irreversível'
+                    : formatCompactNumber(turnaround.needed_votes_absolute)}
+                </strong>
+                <span className="block text-[11px] opacity-75 truncate font-mono">
+                  {sVal !== null && sVal > 100
+                    ? '> 100% dos restantes'
+                    : `${formatInt(turnaround.needed_votes_absolute)} votos`}
+                </span>
+              </div>
+              <p className="mt-1.5 text-[11px] leading-snug opacity-85">
+                {turnaround.trailing_candidate_name ?? '2º colocado'} precisa somar
+              </p>
+            </div>
+          </div>
+
+          {/* 5. Painel Expansível: Simulação de Abstenção / Comparecimento */}
+          <div className="border-t border-slate-200/80 pt-2.5 dark:border-[#1F1F24]">
+            <button
+              type="button"
+              data-testid="toggle-simulate-turnout-btn"
+              onClick={() => setIsSimulateOpen(!isSimulateOpen)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 transition hover:bg-slate-100 dark:border-[#1F1F24] dark:bg-[#0F0F12] dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              <SlidersHorizontal className="h-3 w-3 text-slate-500" aria-hidden="true" />
+              <span>Simular abstenção / comparecimento</span>
+              {turnoutAdjustmentPct !== 0 && (
+                <span className="rounded bg-slate-200 px-1.5 py-0.2 font-mono text-[10px] font-bold text-slate-900 dark:bg-slate-700 dark:text-white">
+                  {turnoutAdjustmentPct > 0 ? `+${turnoutAdjustmentPct}%` : `${turnoutAdjustmentPct}%`}
+                </span>
+              )}
+              {isSimulateOpen ? (
+                <ChevronUp className="h-3.5 w-3.5 text-slate-400" />
+              ) : (
+                <ChevronDown className="h-3.5 w-3.5 text-slate-400" />
+              )}
+            </button>
+
+            {isSimulateOpen && (
+              <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label
+                    htmlFor="turnout-adjustment-slider"
+                    className="text-xs font-semibold text-slate-800 dark:text-slate-200"
+                  >
+                    Ajuste de comparecimento vs 1ºT:{' '}
+                    <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-xs font-bold text-slate-900 dark:bg-slate-800 dark:text-white">
+                      {turnoutAdjustmentPct > 0
+                        ? `+${turnoutAdjustmentPct}%`
+                        : `${turnoutAdjustmentPct}%`}
+                    </span>
+                  </label>
+
+                  {turnoutAdjustmentPct !== 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setTurnoutAdjustmentPct(0)}
+                      className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 underline hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                    >
+                      <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                      Restaurar padrão
+                    </button>
+                  )}
+                </div>
+
+                <div className="mt-2 flex items-center gap-2.5">
+                  <span className="text-[10px] font-medium text-slate-500">-20%</span>
+                  <input
+                    id="turnout-adjustment-slider"
+                    data-testid="turnout-adjustment-slider"
+                    type="range"
+                    min={-20}
+                    max={10}
+                    step={1}
+                    value={turnoutAdjustmentPct}
+                    onChange={(e) => setTurnoutAdjustmentPct(Number(e.target.value))}
+                    className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-slate-300 accent-slate-900 dark:bg-slate-700 dark:accent-white"
+                    aria-label="Ajustar comparecimento esperado em relação ao 1º turno"
+                  />
+                  <span className="text-[10px] font-medium text-slate-500">+10%</span>
+                </div>
+
+                <p className="mt-1.5 text-[11px] text-slate-600 dark:text-slate-400">
+                  Comparecimento esperado:{' '}
+                  <strong>{formatCompactNumber(turnaround.expected_turnout_total)}</strong> ({formatInt(turnaround.expected_turnout_total)}) votos
+                  (1ºT: <strong>{formatCompactNumber(snapshot.electorate.turnout_1t)}</strong>).
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <HowWeCalculateModal
         isOpen={isModalOpen}

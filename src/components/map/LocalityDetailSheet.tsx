@@ -1,6 +1,7 @@
 import {
   AlertTriangle,
   Sparkles,
+  X,
   ZoomIn,
 } from 'lucide-react'
 import type { CandidateResult, LocalityDataItem } from '../../types/election'
@@ -17,6 +18,7 @@ interface LocalityDetailSheetProps {
   candidates: [CandidateResult, CandidateResult]
   canZoomToMunicipalities: boolean
   onZoomToUf?: (uf: string) => void
+  onClose?: () => void
 }
 
 export function LocalityDetailSheet({
@@ -24,6 +26,7 @@ export function LocalityDetailSheet({
   candidates,
   canZoomToMunicipalities,
   onZoomToUf,
+  onClose,
 }: LocalityDetailSheetProps) {
   const [cand1, cand2] = candidates
   const [c1Theme, c2Theme] = getDisputePairThemes(cand1, cand2)
@@ -105,6 +108,18 @@ export function LocalityDetailSheet({
                 Ver municípios de {locality.uf}
               </button>
             )}
+          {onClose && (
+            <button
+              type="button"
+              data-testid="locality-detail-close-btn"
+              onClick={onClose}
+              aria-label="Fechar painel de detalhes"
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-950 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 dark:hover:text-white"
+            >
+              <X className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">Fechar</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -153,9 +168,9 @@ export function LocalityDetailSheet({
               )}
             </span>
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-slate-400">
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-700 dark:text-slate-300">
             <div>
-              <span className="block text-[10px] uppercase tracking-wider text-slate-400">
+              <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">
                 2º Turno (Atual)
               </span>
               <strong className={`font-mono text-xs ${c1Theme.textAccentClass}`}>
@@ -164,10 +179,10 @@ export function LocalityDetailSheet({
               ({formatInt(locality.cand1_votes_2t)})
             </div>
             <div>
-              <span className="block text-[10px] uppercase tracking-wider text-slate-400">
+              <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">
                 1º Turno (Oficial)
               </span>
-              <strong className="font-mono text-xs text-slate-800 dark:text-slate-200">
+              <strong className="font-mono text-xs text-slate-900 dark:text-slate-100">
                 {formatPct(locality.cand1_pct_1t)}
               </strong>{' '}
               ({formatInt(locality.cand1_votes_1t)})
@@ -203,9 +218,9 @@ export function LocalityDetailSheet({
               )}
             </span>
           </div>
-          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px] text-slate-600 dark:text-slate-400">
+          <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-700 dark:text-slate-300">
             <div>
-              <span className="block text-[10px] uppercase tracking-wider text-slate-400">
+              <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">
                 2º Turno (Atual)
               </span>
               <strong className={`font-mono text-xs ${c2Theme.textAccentClass}`}>
@@ -214,10 +229,10 @@ export function LocalityDetailSheet({
               ({formatInt(locality.cand2_votes_2t)})
             </div>
             <div>
-              <span className="block text-[10px] uppercase tracking-wider text-slate-400">
+              <span className="block text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-300">
                 1º Turno (Oficial)
               </span>
-              <strong className="font-mono text-xs text-slate-800 dark:text-slate-200">
+              <strong className="font-mono text-xs text-slate-900 dark:text-slate-100">
                 {formatPct(locality.cand2_pct_1t)}
               </strong>{' '}
               ({formatInt(locality.cand2_votes_1t)})
@@ -226,10 +241,10 @@ export function LocalityDetailSheet({
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 dark:text-slate-400">
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 dark:text-slate-300">
         <span>
           Mais votado no 1º turno neste local:{' '}
-          <strong className="text-slate-700 dark:text-slate-200">
+          <strong className="text-slate-900 dark:text-white">
             {locality.leader_1t_name}
           </strong>{' '}
           (diferença de {formatPct(locality.margin_1t_pp).replace('%', ' p.p.')})
