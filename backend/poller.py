@@ -697,7 +697,11 @@ class ElectionPoller:
                 "tvn": summary["tvn"],
                 "candidates_votes": summary["candidates_votes"],
             }
-            self._pres_mun_2t_key[cache_key] = key
+            # O EA15 e o EA20 são gerados em paralelo: se o arquivo da cidade ainda está atrás
+            # do acompanhamento, usa o que veio e tenta de novo na próxima passada (senão a
+            # cidade ficaria parada até o EA15 mudar outra vez, o que no fim pode não acontecer).
+            if int(summary.get("st") or 0) >= int(s_blk.get("st") or 0):
+                self._pres_mun_2t_key[cache_key] = key
 
     async def _mun_loop(self) -> None:
         """Republica os arquivos municipais de Presidente (com votos) sem travar o ciclo principal."""
