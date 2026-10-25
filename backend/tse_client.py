@@ -3,6 +3,7 @@
 - Nunca fixa no código quais estados têm 2º turno de governador: descobre de `ele-c.json` (EA11).
 - Envia `If-None-Match` (ETag) e `If-Modified-Since` quando disponíveis.
 - Respeita intervalo mínimo de ~45-60s por arquivo e semáforo de concorrência.
+- Limita as requisições por segundo no processo inteiro (limite do TSE: 100/s por IP).
 """
 
 from __future__ import annotations
@@ -62,6 +63,39 @@ class DiscoveredElectionConfig:
     gov_code_1t: str
     gov_code_2t: str
     gov_2t_ufs: list[str] = field(default_factory=list)
+
+
+class RequestPacer:
+    """Espaça o início das requisições para nunca passar de N por segundo.
+
+    O semáforo só limita quantas rodam ao mesmo tempo; com respostas rápidas da CDN,
+    8 em paralelo passariam de 100/s. Aqui cada requisição espera a sua vez.
+    """
+
+    def __init__(self) -> None:
+        self._lock: asyncio.Lock | None = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._next_slot = 0.0
+
+    async def wait_turn(self, max_per_second: float) -> None:
+        if max_per_second <= 0:
+            return
+        loop = asyncio.get_running_loop()
+        # Um Lock fica preso ao event loop em que foi usado (os testes criam um loop por teste).
+        if self._lock is None or self._loop is not loop:
+            self._lock = asyncio.Lock()
+            self._loop = loop
+            self._next_slot = 0.0
+        async with self._lock:
+            now = time.monotonic()
+            if self._next_slot > now:
+                await asyncio.sleep(self._next_slot - now)
+                now = time.monotonic()
+            self._next_slot = max(now, self._next_slot) + 1.0 / max_per_second
+
+
+# Compartilhado por todos os TSEClient do processo: o TSE conta por IP, não por conexão.
+TSE_REQUEST_PACER = RequestPacer()
 
 
 def pad_election_code(code: str | int) -> str:
@@ -227,6 +261,7 @@ class TSEClient:
         async with self._semaphore:
             try:
                 client = await self._get_client()
+                await TSE_REQUEST_PACER.wait_turn(self.settings.tse_max_requests_per_second)
                 resp = await client.get(url, headers=headers)
                 self.stats["requests_total"] += 1
 

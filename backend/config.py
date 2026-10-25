@@ -75,6 +75,11 @@ class Settings:
     tse_max_concurrent_requests: int = field(
         default_factory=lambda: _env_int("TSE_MAX_CONCURRENT_REQUESTS", 8)
     )
+    # Teto de requisições por segundo ao TSE no processo inteiro. O TSE bloqueia o IP por
+    # 10 min acima de 100/s (contando os 304); 30/s deixa folga de 3x.
+    tse_max_requests_per_second: float = field(
+        default_factory=lambda: float(os.getenv("TSE_MAX_REQUESTS_PER_SECOND", "30"))
+    )
     tse_request_timeout_seconds: float = field(
         default_factory=lambda: float(os.getenv("TSE_REQUEST_TIMEOUT_SECONDS", "15.0"))
     )
