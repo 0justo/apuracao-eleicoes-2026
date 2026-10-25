@@ -16,6 +16,7 @@ import {
   formatOfficialCandidateName,
   formatPct,
   formatPP,
+  withDisplayNames,
 } from '../../utils/formatters'
 
 interface WhereVotesRemainProps {
@@ -50,7 +51,7 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
         `/snapshots/presidente/mun/${ufLower}.json`,
       )
       if (staticRes.ok) {
-        const staticData = (await staticRes.json()) as {
+        const staticData = JSON.parse(withDisplayNames(await staticRes.text())) as {
           localities?: LocalityDataItem[]
           municipalities?: LocalityDataItem[]
         }
@@ -357,14 +358,14 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
                 {/* Badge de Liderança no 1º Turno */}
                 <span
                   className={`inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-bold ${pillClass}`}
-                  title={`Líder no 1º turno: ${loc.leader_1t_name} com margem de ${formatPP(loc.margin_1t_pp)}`}
+                  title={`Líder no 1º turno: ${loc.leader_1t_name.replace(/\bFLAVIO\b/g, 'FLÁVIO')} com margem de ${formatPP(loc.margin_1t_pp)}`}
                 >
                   <span className="whitespace-nowrap font-bold">
                     {loc.leader_1t_slot === 1
                       ? (cand1.ballot_name.includes('LULA') ? 'LULA' : cand1.ballot_name)
                       : loc.leader_1t_slot === 2
-                        ? (cand2.ballot_name.toUpperCase().includes('FLAVIO') || cand2.ballot_name.toUpperCase().includes('FLÁVIO') ? 'FLAVIO' : cand2.ballot_name)
-                        : loc.leader_1t_name}
+                        ? (cand2.ballot_name.toUpperCase().includes('FLAVIO') || cand2.ballot_name.toUpperCase().includes('FLÁVIO') ? 'FLÁVIO' : cand2.ballot_name)
+                        : loc.leader_1t_name.replace(/\bFLAVIO\b/g, 'FLÁVIO')}
                   </span>
                   <span className="opacity-80">+{formatPP(loc.margin_1t_pp)}</span>
                 </span>

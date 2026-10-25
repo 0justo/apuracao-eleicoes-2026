@@ -29,7 +29,7 @@ function getShortCandidateName(ballotName: string): string {
   const norm = ballotName.trim().toUpperCase()
   if (norm.includes('LULA')) return 'Lula'
   if (norm.includes('FLAVIO') || norm.includes('FLÁVIO') || norm.includes('BOLSONARO')) {
-    return 'Flavio'
+    return 'Flávio'
   }
   const clean = ballotName.replace(
     /^(PROFESSOR[A]?|DEPUTAD[OA]|CORONEL|PASTOR[A]?|CAPIT[AÃ]O)\s+/i,

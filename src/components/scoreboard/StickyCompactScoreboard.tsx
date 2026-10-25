@@ -29,7 +29,7 @@ function getShortCandidateName(ballotName: string): string {
     norm.includes('FLÁVIO') ||
     norm.includes('BOLSONARO')
   ) {
-    return 'FLAVIO'
+    return 'FLÁVIO'
   }
   if (norm.includes('CADU')) return 'CADU'
   if (norm.includes('ALLYSON')) return 'ALLYSON'
@@ -114,6 +114,7 @@ function getCandidateAvatar(cand: DisputeSnapshot['candidates'][number]) {
 function cleanMessageText(text: string): string {
   return text
     .replace(/\s*\(Estimativa do site, não é resultado oficial\)\.?\s*/gi, '')
+    .replace(/\bFLAVIO\b/g, 'FLÁVIO')
     .trim()
 }
 
