@@ -96,10 +96,9 @@ function escapeRegExp(value: string) {
 }
 
 function renderCleanTickerContent(rawText: string, highlightNames: string[]) {
-  // Limpa o texto residual entre parênteses e garante a grafia acentuada FLÁVIO
+  // Limpa o texto residual entre parênteses; os nomes ficam como o TSE grava
   const sanitized = rawText
     .replace(/\s*\(Estimativa do site, não é resultado oficial\)\.?\s*/gi, '')
-    .replace(/\bFLAVIO\b/g, 'FLÁVIO')
     .trim()
 
   // Antes: lista fixa "Lula|Flávio Bolsonaro|Tarcísio". O TSE grava "FLAVIO BOLSONARO" sem

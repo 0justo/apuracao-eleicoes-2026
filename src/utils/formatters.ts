@@ -77,5 +77,6 @@ export function formatCompactNumber(
 
 export function formatOfficialCandidateName(name: string | null | undefined): string {
   if (!name) return ''
-  return name.replace(/\bFLAVIO\b/g, 'FLÁVIO')
+  // Nome de urna exatamente como no arquivo do TSE (Res. 23.751/2026, art. 267, § 4º)
+  return name
 }
