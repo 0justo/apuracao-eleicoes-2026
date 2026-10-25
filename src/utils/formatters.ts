@@ -75,6 +75,15 @@ export function formatCompactNumber(
   return formatInt(value)
 }
 
+/**
+ * Grafia de exibição decidida pelos autores: "FLÁVIO" com acento em todo o site.
+ * Aplicada ao texto bruto dos JSON publicados, antes do parse, para cobrir todos os
+ * componentes (placar, calculadora, linha do tempo, mapa). Os arquivos seguem iguais ao TSE.
+ */
+export function withDisplayNames(rawJson: string): string {
+  return rawJson.replace(/\bFLAVIO\b/g, 'FLÁVIO')
+}
+
 export function formatOfficialCandidateName(name: string | null | undefined): string {
   if (!name) return ''
   return name.replace(/\bFLAVIO\b/g, 'FLÁVIO')

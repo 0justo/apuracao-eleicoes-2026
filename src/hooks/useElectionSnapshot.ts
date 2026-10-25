@@ -4,6 +4,7 @@ import type {
   ElectionCatalogSnapshot,
   ReplayBundle,
 } from '../types/election'
+import { withDisplayNames } from '../utils/formatters'
 
 export type SimulationStage =
   | 'live'
@@ -88,8 +89,8 @@ export function useElectionSnapshot(
 
       if (reqId !== activeRequestRef.current) return
 
-      const catData = JSON.parse(catText) as ElectionCatalogSnapshot
-      const snapData = JSON.parse(snapText) as DisputeSnapshot
+      const catData = JSON.parse(withDisplayNames(catText)) as ElectionCatalogSnapshot
+      const snapData = JSON.parse(withDisplayNames(snapText)) as DisputeSnapshot
 
       // Só atualiza referência de estado se os dados da apuração ou disputa realmente mudaram,
       // evitando re-renders desnecessários e preservando scroll e estado local dos componentes.

@@ -16,6 +16,7 @@ import {
   formatOfficialCandidateName,
   formatPct,
   formatPP,
+  withDisplayNames,
 } from '../../utils/formatters'
 
 interface WhereVotesRemainProps {
@@ -50,7 +51,7 @@ export function WhereVotesRemain({ snapshot }: WhereVotesRemainProps) {
         `/snapshots/presidente/mun/${ufLower}.json`,
       )
       if (staticRes.ok) {
-        const staticData = (await staticRes.json()) as {
+        const staticData = JSON.parse(withDisplayNames(await staticRes.text())) as {
           localities?: LocalityDataItem[]
           municipalities?: LocalityDataItem[]
         }

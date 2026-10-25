@@ -19,6 +19,7 @@ import {
   formatOfficialCandidateName,
   formatPct,
   formatSignedPP,
+  withDisplayNames,
 } from '../../utils/formatters'
 import {
   type DecodedGeoFeature,
@@ -209,7 +210,7 @@ export function SwingMapSection({
         }
 
         if (isPresidential && munRes && munRes.ok) {
-          const payload = (await munRes.json()) as {
+          const payload = JSON.parse(withDisplayNames(await munRes.text())) as {
             localities: LocalityDataItem[]
           }
           const list = payload.localities ?? []
