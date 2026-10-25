@@ -690,6 +690,7 @@ class ElectionPoller:
 
     async def _loop(self) -> None:
         while self._running:
+            cycle_started = time.monotonic()
             try:
                 await self.run_single_cycle()
                 # A cada ~5 min (e logo no 1º ciclo) atualiza os 27 arquivos municipais de Presidente.
@@ -702,4 +703,8 @@ class ElectionPoller:
                     level="ERROR", component="poller", message=f"Falha no loop: {exc}"
                 )
             await self.alert_manager.check_and_notify_staleness(self.last_success_ts)
-            await asyncio.sleep(self.settings.tse_poll_interval_seconds)
+            # Desconta a duração do ciclo para manter ~1 ciclo por intervalo mesmo no pico
+            # (o limite por segundo alonga os ciclos com muitos municípios). O mínimo de 5 s
+            # e o intervalo mínimo por arquivo (fetch_json) evitam ciclos colados.
+            elapsed = time.monotonic() - cycle_started
+            await asyncio.sleep(max(5.0, self.settings.tse_poll_interval_seconds - elapsed))

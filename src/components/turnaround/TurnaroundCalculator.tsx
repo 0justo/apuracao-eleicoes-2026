@@ -63,20 +63,20 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
     }
     if (sVal < 50) {
       return {
-        label: 'Fácil (<50%)',
+        label: 'Menos da metade',
         badge: 'border border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
         textColor: 'text-emerald-600 dark:text-emerald-400',
       }
     }
     if (sVal <= 60) {
       return {
-        label: 'Disputado (50% a 60%)',
+        label: 'Disputado',
         badge: 'border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400',
         textColor: 'text-amber-600 dark:text-amber-400',
       }
     }
     return {
-      label: 'Difícil (>60%)',
+      label: sVal > 100 ? 'Acima do restante' : 'Difícil',
       badge: 'border border-rose-500/40 bg-rose-500/10 text-rose-700 dark:text-rose-400',
       textColor: 'text-rose-600 dark:text-rose-400',
     }
@@ -120,7 +120,8 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
                 Fórmula de Necessidade Matemática (s)
               </p>
               <p className="mt-1 text-slate-300">
-                Calcula a porcentagem exata dos votos válidos restantes estimados que o candidato em desvantagem precisa obter para ultrapassar 50% dos votos válidos.
+                Mostra quanto dos votos válidos que ainda faltam o 2º colocado precisaria receber
+                para passar à frente, com base na estimativa de votos restantes.
               </p>
               <div
                 data-testid="turnaround-estimate-disclaimer"
@@ -145,11 +146,11 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
 
       {/* 2. Destaque Principal com Linguagem Clara e Frase Direta */}
       <div className="mt-3.5 rounded-xl border border-slate-200 bg-slate-50/80 p-3.5 sm:p-4 dark:border-[#1F1F24] dark:bg-[#0F0F12]">
-        <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Cenário para a virada
+            Cenário estimado
           </span>
-          <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider shrink-0 ${zoneInfo.badge}`}>
+          <span className={`inline-block shrink-0 rounded-full px-2.5 py-0.5 text-xs font-bold ${zoneInfo.badge}`}>
             {zoneInfo.label}
           </span>
         </div>
@@ -157,30 +158,30 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
         <div>
           {turnaround.trailing_candidate_name ? (
             <div className="text-sm font-medium text-slate-700 sm:text-base dark:text-slate-200">
-              <div className="flex items-center gap-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
-                <span>Para virar,</span>
-                <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-black shadow-xs shrink-0 ${accentBadgeClass}`}>
+              {/* Frase quebra em linhas: nomes longos (ex.: FLAVIO BOLSONARO) não são cortados */}
+              <p className="leading-relaxed">
+                Para passar à frente,{' '}
+                <span className={`inline-block rounded-md px-2 py-0.5 align-middle text-xs font-black shadow-xs ${accentBadgeClass}`}>
                   {turnaround.trailing_candidate_name}
-                </span>
-                <span>precisa conquistar</span>
-              </div>
-              <div className="mt-1 flex items-baseline gap-1.5 flex-wrap">
+                </span>{' '}
+                precisaria de
+              </p>
+              <div className="mt-1 flex flex-wrap items-baseline gap-x-1.5">
                 <strong
                   data-testid="turnaround-needed-pct"
                   className="text-2xl font-black tracking-tight text-slate-900 sm:text-3xl dark:text-white"
                 >
-                  {sVal === null
-                    ? '—'
-                    : sVal > 100
-                      ? `> 100% (${formatNumberComma(sVal)}%)`
-                      : sVal <= 0
-                        ? '≤ 0%'
-                        : `${formatNumberComma(sVal)}%`}
+                  {sVal === null ? '—' : sVal <= 0 ? '≤ 0%' : `${formatNumberComma(sVal)}%`}
                 </strong>
                 <span className="text-sm font-medium text-slate-600 sm:text-base dark:text-slate-300">
-                  dos votos que ainda faltam.
+                  dos votos válidos que ainda faltam apurar.
                 </span>
               </div>
+              {sVal !== null && sVal > 100 && (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  A meta é maior do que todos os votos válidos estimados que faltam.
+                </p>
+              )}
             </div>
           ) : (
             <div className="text-sm font-medium text-slate-700 sm:text-base dark:text-slate-200">
@@ -189,7 +190,8 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
               </span>{' '}
               {turnaround.leading_candidate_name ? (
                 <>
-                  Vantagem consolidada de <strong>{turnaround.leading_candidate_name}</strong> ({formatInt(turnaround.vote_difference)} votos à frente).
+                  <strong>{turnaround.leading_candidate_name}</strong> está à frente por{' '}
+                  {formatInt(turnaround.vote_difference)} votos.
                 </>
               ) : (
                 'Apuração concluída ou aguardando dados oficiais.'
@@ -205,7 +207,7 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
         <div className="mt-4 relative">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-              Escala de Dificuldade da Meta
+              Parcela necessária dos votos que faltam
             </span>
             <div className="relative">
               <button
@@ -224,7 +226,7 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
                   className="absolute right-0 bottom-full mb-2 z-40 w-72 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-[#1F1F24] dark:bg-[#0F0F12] text-xs space-y-2 text-slate-700 dark:text-slate-200"
                 >
                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-[#1F1F24] pb-1.5">
-                    <span className="font-bold text-slate-900 dark:text-white">Escala da Virada</span>
+                    <span className="font-bold text-slate-900 dark:text-white">Como ler a escala</span>
                     <button
                       type="button"
                       onClick={() => setIsDifficultyInfoOpen(false)}
@@ -236,14 +238,19 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
                   </div>
                   <div className="space-y-1.5 text-[11px] leading-relaxed">
                     <p>
-                      <strong className="text-emerald-600 dark:text-emerald-400">Fácil (&lt;50%):</strong> O candidato líder já está à frente ou precisa de menos da metade dos votos restantes para manter a liderança.
+                      O ponteiro mostra quanto dos votos válidos que faltam o 2º colocado
+                      precisaria receber para passar à frente.
                     </p>
                     <p>
-                      <strong className="text-amber-600 dark:text-amber-400">Disputado (50% a 60%):</strong> Cenário competitivo. O candidato precisa de um desempenho superior ao do 1º turno nas urnas restantes.
+                      <strong className="text-emerald-600 dark:text-emerald-400">Menos de 50%:</strong> precisaria de menos da metade dos votos que faltam.
                     </p>
                     <p>
-                      <strong className="text-rose-600 dark:text-rose-400">Difícil (&gt;60%):</strong> Cenário complexo. Depende de votação atípica em colégios eleitorais ainda não apurados para reverter o placar.
+                      <strong className="text-amber-600 dark:text-amber-400">De 50% a 60%:</strong> precisaria de um pouco mais da metade dos votos que faltam.
                     </p>
+                    <p>
+                      <strong className="text-rose-600 dark:text-rose-400">Acima de 60%:</strong> precisaria de uma parcela bem maior que a dos votos já apurados. Acima de 100%, a meta passa do total estimado que falta.
+                    </p>
+                    <p className="text-slate-500 dark:text-slate-400">Estimativa do site, não é resultado oficial.</p>
                   </div>
                 </div>
               )}
@@ -296,16 +303,27 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
             )}
           </div>
 
-          {/* Rótulos Intuitivos das 3 Zonas */}
-          <div className="mt-1.5 flex items-center justify-between text-[11px] font-semibold">
-            <span className="text-emerald-600 dark:text-emerald-400">
-              Fácil (&lt;50%)
+          {/* Marcas de 50% e 60% na posição real da barra */}
+          <div className="relative mt-1 h-3.5 font-mono text-[10px] text-slate-500 dark:text-slate-400" aria-hidden="true">
+            <span className="absolute left-0">0%</span>
+            <span className="absolute left-1/2 -translate-x-1/2">50%</span>
+            <span className="absolute left-[60%] -translate-x-1/4">60%</span>
+            <span className="absolute right-0">100%</span>
+          </div>
+
+          {/* Legenda das 3 zonas (quebra em linhas no celular, sem cortar) */}
+          <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-semibold">
+            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+              Menos da metade
             </span>
-            <span className="text-amber-600 dark:text-amber-400">
-              Disputado (50% a 60%)
+            <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+              <span className="h-2 w-2 rounded-full bg-amber-500" aria-hidden="true" />
+              Disputado (50–60%)
             </span>
-            <span className="text-rose-600 dark:text-rose-400">
-              Difícil (&gt;60%)
+            <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-400">
+              <span className="h-2 w-2 rounded-full bg-rose-500" aria-hidden="true" />
+              Difícil (acima de 60%)
             </span>
           </div>
 
@@ -375,32 +393,30 @@ export function TurnaroundCalculator({ snapshot }: TurnaroundCalculatorProps) {
                 </span>
               </div>
               <p className="mt-1.5 text-[11px] leading-snug text-amber-700/80 dark:text-amber-400/80">
-                Estimativa de urnas pendentes
+                Estimativa do site para as urnas que faltam apurar
               </p>
             </div>
 
             {/* 3. Meta para a virada (Destaque na cor do Candidato que busca a virada) */}
             <div className={`rounded-xl border p-3 shadow-xs transition overflow-hidden ${trailingTheme.borderClass} ${trailingTheme.cardBgClass}`}>
               <span className={`block text-xs font-medium ${trailingTheme.textAccentClass}`}>
-                Meta para a virada
+                Meta para passar à frente
               </span>
               <div className="mt-1">
                 <strong
                   data-testid="turnaround-var-a"
                   className={`block text-xl font-bold leading-tight ${trailingTheme.textAccentClass}`}
                 >
-                  {sVal !== null && sVal > 100
-                    ? 'Irreversível'
-                    : formatCompactNumber(turnaround.needed_votes_absolute)}
+                  {formatCompactNumber(turnaround.needed_votes_absolute)}
                 </strong>
                 <span className="block text-[11px] opacity-75 truncate font-mono">
-                  {sVal !== null && sVal > 100
-                    ? '> 100% dos restantes'
-                    : `${formatInt(turnaround.needed_votes_absolute)} votos`}
+                  {formatInt(turnaround.needed_votes_absolute)} votos
                 </span>
               </div>
               <p className="mt-1.5 text-[11px] leading-snug opacity-85">
-                {turnaround.trailing_candidate_name ?? '2º colocado'} precisa somar
+                {sVal !== null && sVal > 100
+                  ? 'Meta maior que os votos válidos estimados que faltam'
+                  : `Votos que ${turnaround.trailing_candidate_name ?? 'o 2º colocado'} precisaria receber dos que faltam`}
               </p>
             </div>
           </div>
