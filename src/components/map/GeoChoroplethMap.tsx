@@ -801,7 +801,8 @@ export function GeoChoroplethMap({
   const exteriorTemVotos = (exterior?.valid_votes_2t ?? 0) > 0
 
   // Identificação do candidato líder na localidade sob hover
-  const isCand1Leader = hoveredLoc ? (hoveredLoc.cand1_pct_2t ?? 0) >= (hoveredLoc.cand2_pct_2t ?? 0) : false
+  // Sem votos ou empate: nenhum selo de líder
+  const isCand1Leader = hoveredLoc ? (hoveredLoc.cand1_pct_2t ?? 0) > (hoveredLoc.cand2_pct_2t ?? 0) : false
   const isCand2Leader = hoveredLoc ? (hoveredLoc.cand2_pct_2t ?? 0) > (hoveredLoc.cand1_pct_2t ?? 0) : false
 
   return (

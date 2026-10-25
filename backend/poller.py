@@ -54,6 +54,11 @@ class ElectionPoller:
         self._last_ab_timestamps: dict[str, str] = {}
         self._cached_child_2t: dict[str, dict[str, dict[str, Any]]] = {}
         self._cached_cands_2t_meta: dict[str, list[dict[str, Any]]] = {}
+        # Votos do 2º turno por município de Presidente (uf -> código -> resumo enxuto) e a
+        # marca dt_ht_st do EA15 de quando cada um foi baixado.
+        self._pres_mun_2t: dict[str, dict[str, dict[str, Any]]] = {}
+        self._pres_mun_2t_key: dict[str, str] = {}
+        self._mun_task: asyncio.Task[None] | None = None
         self._task: asyncio.Task[None] | None = None
         self._running: bool = False
         # Impede dois ciclos simultâneos (loop + chamada manual) escrevendo os mesmos arquivos.
@@ -543,6 +548,9 @@ class ElectionPoller:
             for item in ab_payload.get("abr", [])
             if str(item.get("tpabr")) == "mun"
         }
+        if self.settings.tse_source_mode == "live":
+            await self._refresh_pres_mun_votes(uf_l, ab_by_mun)
+        votes_2t_by_mun = self._pres_mun_2t.get(uf_l, {})
 
         pres_snap = self.db.get_latest_snapshot("presidente")
         c1_num = pres_snap.candidates[0].number if pres_snap else "13"
@@ -583,6 +591,15 @@ class ElectionPoller:
             )
             rem_valid = max(0, int(round(max(0, c_1t - c_2t) * (1.0 - bn_1t))))
 
+            # Votos do 2º turno no município (EA20 municipal), quando já baixados
+            m2t = votes_2t_by_mun.get(m_cd) or {}
+            vv_2t = int(m2t.get("vv", 0))
+            v1_2t = int(m2t.get("candidates_votes", {}).get(c1_num, 0))
+            v2_2t = int(m2t.get("candidates_votes", {}).get(c2_num, 0))
+            c1_pct_2t = round(v1_2t / vv_2t * 100.0, 2) if vv_2t > 0 else 0.0
+            c2_pct_2t = round(v2_2t / vv_2t * 100.0, 2) if vv_2t > 0 else 0.0
+            has_2t = vv_2t > 0
+
             items.append(
                 {
                     "code_tse": m_cd,
@@ -600,15 +617,15 @@ class ElectionPoller:
                     "total_electorate": te_m,
                     "turnout_votes_2t": c_2t,
                     "turnout_votes_1t": c_1t,
-                    "valid_votes_2t": 0,
-                    "blank_votes_2t": 0,
-                    "null_votes_2t": 0,
+                    "valid_votes_2t": vv_2t,
+                    "blank_votes_2t": int(m2t.get("vb", 0)),
+                    "null_votes_2t": int(m2t.get("tvn", 0)),
                     "blank_null_rate_1t": bn_1t,
-                    "cand1_votes_2t": 0,
-                    "cand2_votes_2t": 0,
-                    "cand1_pct_2t": 0.0,
-                    "cand2_pct_2t": 0.0,
-                    "margin_2t_pp": 0.0,
+                    "cand1_votes_2t": v1_2t,
+                    "cand2_votes_2t": v2_2t,
+                    "cand1_pct_2t": c1_pct_2t,
+                    "cand2_pct_2t": c2_pct_2t,
+                    "margin_2t_pp": round(abs(c1_pct_2t - c2_pct_2t), 2),
                     "cand1_votes_1t": v1_1t,
                     "cand2_votes_1t": v2_1t,
                     "valid_votes_1t": vv_1t,
@@ -619,9 +636,10 @@ class ElectionPoller:
                     "leader_1t_slot": leader_slot,
                     "leader_1t_name": leader_name,
                     "margin_1t_pp": round(abs(c1_pct_1t - c2_pct_1t), 2),
-                    "cand1_swing_pp": None,
-                    "cand2_swing_pp": None,
-                    "net_swing_cand1_pp": None,
+                    "cand1_swing_pp": round(c1_pct_2t - c1_pct_1t, 2) if has_2t else None,
+                    "cand2_swing_pp": round(c2_pct_2t - c2_pct_1t, 2) if has_2t else None,
+                    # Mesma fórmula do normalizer (UFs): % no 2º turno − % normalizado do 1º
+                    "net_swing_cand1_pp": round(c1_pct_2t - c1_norm_1t, 2) if has_2t else None,
                     "estimated_remaining_valid_votes": rem_valid,
                     "changed_in_last_cycle": False,
                     "delta_pct_counted_last_cycle": 0.0,
@@ -639,12 +657,67 @@ class ElectionPoller:
             )
         return items
 
-    async def publish_pres_municipal_files(self) -> None:
-        """Gera presidente/mun/<uf>.json com dados REAIS (EA15 + 1º turno).
+    async def _refresh_pres_mun_votes(
+        self, uf_l: str, ab_by_mun: dict[str, dict[str, Any]]
+    ) -> None:
+        """Baixa o EA20 municipal de Presidente só das cidades que mudaram no EA15.
 
-        Substitui os arquivos simulados versionados. Votos do 2º turno por município não são
-        baixados (seriam 5.570 arquivos por ciclo); o mapa municipal fica cinza ("sem votos")
-        em vez de mostrar números inventados, e o ranking "Onde falta contar" usa o % apurado real.
+        Só pede cidades com seções apuradas (o arquivo existe; evita 404, que pode bloquear o
+        IP). Uma requisição por vez, com pausa, para não disputar o limite global com o ciclo
+        principal: no pior caso ~10/s aqui, dentro do teto de TSE_MAX_REQUESTS_PER_SECOND.
+        """
+        assert self.discovered is not None
+        uf_votes = self._pres_mun_2t.setdefault(uf_l, {})
+        for m_cd, ab_m in ab_by_mun.items():
+            s_blk = ab_m.get("s") or {}
+            if int(s_blk.get("st") or 0) <= 0:
+                continue
+            key = f"{ab_m.get('dt', '')}_{ab_m.get('ht', '')}_{s_blk.get('st', '0')}"
+            cache_key = f"{uf_l}_{m_cd}"
+            if self._pres_mun_2t_key.get(cache_key) == key and m_cd in uf_votes:
+                continue
+            await asyncio.sleep(0.1)
+            url = self.client.url_resultado_u(
+                self.discovered.pres_code_2t, "1", uf_l, m_cd, cycle=self.discovered.cycle
+            )
+            try:
+                summary = extract_ea20_summary(
+                    await self.client.fetch_json(url, raise_on_error=True)
+                )
+            except Exception as exc:
+                self.db.log_event(
+                    level="WARNING",
+                    component="poller",
+                    message=f"Presidente {uf_l.upper()}/{m_cd}: votos do município não baixados, nova tentativa depois: {exc}",
+                )
+                continue
+            uf_votes[m_cd] = {
+                "vv": summary["vv"],
+                "vb": summary["vb"],
+                "tvn": summary["tvn"],
+                "candidates_votes": summary["candidates_votes"],
+            }
+            self._pres_mun_2t_key[cache_key] = key
+
+    async def _mun_loop(self) -> None:
+        """Republica os arquivos municipais de Presidente (com votos) sem travar o ciclo principal."""
+        while self._running:
+            started = time.monotonic()
+            try:
+                await self.publish_pres_municipal_files()
+            except Exception as exc:
+                self.db.log_event(
+                    level="ERROR", component="poller", message=f"Falha nos arquivos municipais: {exc}"
+                )
+            elapsed = time.monotonic() - started
+            await asyncio.sleep(max(10.0, self.settings.tse_poll_interval_seconds - elapsed))
+
+    async def publish_pres_municipal_files(self) -> None:
+        """Gera presidente/mun/<uf>.json com dados REAIS (EA15 + EA20 municipal + 1º turno).
+
+        Os votos do 2º turno de cada cidade vêm do EA20 municipal, baixado só quando o EA15
+        indica mudança (_refresh_pres_mun_votes). Cidade ainda sem seções apuradas fica com
+        votos zerados ("sem votos") em vez de números inventados.
         """
         if self.discovered is None:
             return
@@ -680,6 +753,13 @@ class ElectionPoller:
 
     async def stop_background_loop(self) -> None:
         self._running = False
+        if self._mun_task is not None:
+            self._mun_task.cancel()
+            try:
+                await self._mun_task
+            except asyncio.CancelledError:
+                pass
+            self._mun_task = None
         if self._task is not None:
             self._task.cancel()
             try:
@@ -693,11 +773,10 @@ class ElectionPoller:
             cycle_started = time.monotonic()
             try:
                 await self.run_single_cycle()
-                # A cada ~5 min (e logo no 1º ciclo) atualiza os 27 arquivos municipais de Presidente.
-                last_mun = getattr(self, "_last_mun_publish_ts", 0.0)
-                if self.settings.tse_source_mode == "live" and time.time() - last_mun >= 300:
-                    self._last_mun_publish_ts = time.time()
-                    await self.publish_pres_municipal_files()
+                # Arquivos municipais de Presidente (com votos do 2º turno) numa tarefa própria,
+                # iniciada após o 1º ciclo, para não atrasar Presidente e Governadores.
+                if self.settings.tse_source_mode == "live" and self._mun_task is None:
+                    self._mun_task = asyncio.create_task(self._mun_loop())
             except Exception as exc:
                 self.db.log_event(
                     level="ERROR", component="poller", message=f"Falha no loop: {exc}"
