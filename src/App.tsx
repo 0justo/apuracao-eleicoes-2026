@@ -17,6 +17,7 @@ import { MethodologyPage } from './components/pages/MethodologyPage'
 import { StatusPage } from './components/pages/StatusPage'
 import { RegionBreakdownCard } from './components/pending/RegionBreakdownCard'
 import { WhereVotesRemain } from './components/pending/WhereVotesRemain'
+import { ElectedHero } from './components/scoreboard/ElectedHero'
 import { NeutralScoreboard } from './components/scoreboard/NeutralScoreboard'
 import { StickyCompactScoreboard } from './components/scoreboard/StickyCompactScoreboard'
 import { MarginTimelineChart } from './components/timeline/MarginTimelineChart'
@@ -463,6 +464,9 @@ export function App() {
                 onSelectSimulatedStage={handleChangeStage}
               />
             )}
+
+            {/* Resultado final: destaque do eleito, só quando o arquivo do TSE marca e == "s" */}
+            {!isReplayMode && <ElectedHero snapshot={snapshot} />}
 
             {/* Bloco Integrado: Placar Principal + Sentinela + Lex em espaçamento vertical coeso */}
             <div className="space-y-2.5 sm:space-y-3">
